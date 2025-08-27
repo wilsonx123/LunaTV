@@ -2,7 +2,7 @@
 
 ### Added
 
-- Add Chromecast Funcation
+- Add Chromecast Function to Artplayer
 
 ## [100.0.0] - 2025-08-26
 
@@ -345,5 +345,6 @@
 - 基于 Semantic Versioning 的版本号机制
 
 - 版本信息面板，展示本地变更日志和远程更新日志
+
 
 
