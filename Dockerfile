@@ -25,6 +25,9 @@ COPY . .
 # 在构建阶段也显式设置 DOCKER_ENV，
 ENV DOCKER_ENV=true
 
+# 运行 convert-changelog.js 脚本
+RUN node scripts/convert-changelog.js
+
 # 生成生产构建
 RUN pnpm run build
 
@@ -54,9 +57,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 
 EXPOSE 3000
-
-# 运行 convert-changelog.js 脚本
-RUN node scripts/convert-changelog.js
 
 # 使用自定义启动脚本，先预加载配置再启动服务器
 CMD ["node", "start.js"] 
