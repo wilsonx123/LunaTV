@@ -16,19 +16,12 @@ jobs:
           node-version: '20' # Matches your Next.js setup
           cache: 'pnpm' # Caches pnpm dependencies
 
-      - name: Install pnpm via npm
-        run: npm install -g pnpm@10.14.0
+      - name: Enable corepack
+        run: corepack enable
         shell: bash
-        env:
-          PATH: ${{ runner.tool_cache }}/pnpm/bin:$PATH
 
-      - name: Fallback pnpm installation via curl
-        run: curl -fsSL https://get.pnpm.io/install.sh | bash
-        shell: bash
-        if: failure() # Run only if the previous step fails
-
-      - name: Update PATH for pnpm
-        run: echo "/usr/local/bin" >> $GITHUB_PATH
+      - name: Install pnpm
+        run: corepack prepare pnpm@10.14.0 --activate
         shell: bash
 
       - name: Verify pnpm installation
