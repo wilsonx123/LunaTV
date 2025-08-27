@@ -34,6 +34,9 @@ FROM node:20-alpine AS runner
 # 创建非 root 用户
 RUN addgroup -g 1001 -S nodejs && adduser -u 1001 -S nextjs -G nodejs
 
+# 运行 convert-changelog.js 脚本
+RUN node scripts/convert-changelog.js
+
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
