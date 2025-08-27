@@ -7,7 +7,7 @@ jobs:
   add-dependency:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - nameT: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -16,12 +16,25 @@ jobs:
           node-version: '20' # Matches your Next.js setup
           cache: 'pnpm' # Caches pnpm dependencies
 
-      - name: Install pnpm
-        run: npm install -g pnpm@10.14.0 # Install pnpm globally
+      - name: Install pnpm via npm
+        run: npm install -g pnpm@10.14.0
+        shell: bash
+        env:
+          PATH: ${{ runner.tool_cache }}/pnpm/bin:$PATH
+
+      - name: Fallback pnpm installation via curl
+        run: curl -fsSL https://get.pnpm.io/install.sh | bash
+        shell: bash
+        if: failure() # Run only if the previous step fails
+
+      - name: Update PATH for pnpm
+        run: echo "/usr/local/bin" >> $GITHUB_PATH
         shell: bash
 
       - name: Verify pnpm installation
-        run: pnpm --version # Debug step to confirm pnpm is installed
+        run: |
+          which pnpm
+          pnpm --version
         shell: bash
 
       - name: Install artplayer-plugin-chromecast
