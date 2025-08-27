@@ -7,7 +7,7 @@ jobs:
   add-dependency:
     runs-on: ubuntu-latest
     steps:
-      - nameT: Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
