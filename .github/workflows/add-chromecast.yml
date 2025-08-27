@@ -7,24 +7,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false # We'll handle installation manually later
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20' # Matches your Next.js setup
-          cache: 'pnpm' # Attempt to cache pnpm dependencies
+          cache: 'pnpm' # Enables caching for pnpm dependencies
           cache-dependency-path: '**/pnpm-lock.yaml'
-      - name: Debug Node.js environment
-        run: |
-          echo "Node version: $(node --version)"
-          echo "npm version: $(npm --version)"
-          echo "PATH: $PATH"
-        shell: bash
-      - name: Install pnpm
-        run: npm install -g pnpm@10.14.0
-        shell: bash
       - name: Verify pnpm installation
         run: |
-          echo "PATH after pnpm install: $PATH"
+          echo "PATH: $PATH"
           which pnpm || echo "pnpm not found"
           pnpm --version || echo "pnpm version command failed"
         shell: bash
