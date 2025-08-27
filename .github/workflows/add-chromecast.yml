@@ -17,13 +17,16 @@ jobs:
           cache: 'pnpm' # Caches pnpm dependencies
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4 # Dedicated action for pnpm
-        with:
-          version: 10.14.0 # Matches your package.json packageManager
-          run_install: false # We'll run install manually later
+        run: npm install -g pnpm@10.14.0 # Install pnpm globally
+        shell: bash
+
+      - name: Verify pnpm installation
+        run: pnpm --version # Debug step to confirm pnpm is installed
+        shell: bash
 
       - name: Install artplayer-plugin-chromecast
         run: pnpm install artplayer-plugin-chromecast
+        shell: bash
 
       - name: Commit changes
         run: |
@@ -34,3 +37,4 @@ jobs:
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
