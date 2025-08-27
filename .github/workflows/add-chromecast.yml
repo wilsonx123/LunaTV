@@ -13,11 +13,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Adjust to match your Next.js setup
-          cache: 'pnpm'
+          node-version: '20' # Matches your Next.js setup
+          cache: 'pnpm' # Caches pnpm dependencies
 
       - name: Install pnpm
-        run: npm install -g pnpm@10.14.0
+        uses: pnpm/action-setup@v4 # Dedicated action for pnpm
+        with:
+          version: 10.14.0 # Matches your package.json packageManager
+          run_install: false # We'll run install manually later
 
       - name: Install artplayer-plugin-chromecast
         run: pnpm install artplayer-plugin-chromecast
