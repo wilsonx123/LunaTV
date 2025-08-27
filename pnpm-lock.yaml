@@ -38,9 +38,6 @@ importers:
       artplayer:
         specifier: ^5.2.5
         version: 5.2.5
-      artplayer-plugin-chromecast:
-        specifier: ^1.0.0
-        version: 1.0.0
       bs58:
         specifier: ^6.0.0
         version: 6.0.0
@@ -11346,10 +11343,6 @@ snapshots:
       is-typedarray: 1.0.0
       signal-exit: 3.0.7
       typedarray-to-buffer: 3.1.5
-
-  artplayer-plugin-chromecast@1.0.0:
-    dependencies:
-      artplayer: 5.2.5
 
   ws@7.5.10: {}
 
