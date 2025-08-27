@@ -1,39 +1,50 @@
 name: Add Chromecast Plugin
-
 on:
   workflow_dispatch: # Allows manual trigger
-
 jobs:
   add-dependency:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20' # Matches your Next.js setup
           cache: 'pnpm' # Caches pnpm dependencies
-
+      - name: Debug Node.js and npm versions
+        run: |
+          node --version
+          npm --version
+        shell: bash
       - name: Enable corepack
         run: corepack enable
         shell: bash
-
-      - name: Install pnpm
+        continue-on-error: true # Continue even if corepack fails
+      - name: Install pnpm via corepack
         run: corepack prepare pnpm@10.14.0 --activate
         shell: bash
-
+        continue-on-error: true # Continue if corepack fails
+      - name: Fallback pnpm installation via npm
+        run: npm install -g pnpm@10.14.0
+        shell: bash
+        if: failure() # Run if corepack steps fail
+      - name: Fallback pnpm installation via curl
+        run: curl -fsSL https://get.pnpm.io/install.sh | bash
+        shell: bash
+        if: failure() # Run if npm install fails
+      - name: Update PATH for pnpm
+        run: echo "/usr/local/bin" >> $GITHUB_PATH
+        shell: bash
       - name: Verify pnpm installation
         run: |
-          which pnpm
-          pnpm --version
+          echo "PATH: $PATH"
+          which pnpm || echo "pnpm not found"
+          pnpm --version || echo "pnpm version command failed"
         shell: bash
-
       - name: Install artplayer-plugin-chromecast
         run: pnpm install artplayer-plugin-chromecast
         shell: bash
-
       - name: Commit changes
         run: |
           git config --global user.name "GitHub Action"
