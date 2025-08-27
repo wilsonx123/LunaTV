@@ -11344,6 +11344,10 @@ snapshots:
       signal-exit: 3.0.7
       typedarray-to-buffer: 3.1.5
 
+  artplayer-plugin-chromecast@1.0.0:
+    dependencies:
+      artplayer: 5.2.5
+
   ws@7.5.10: {}
 
   xml-name-validator@3.0.0: {}
