@@ -3,7 +3,6 @@
 'use client';
 
 import Artplayer from 'artplayer';
-import artplayerPluginChromecast from 'artplayer-tool-chromecast';
 import Hls from 'hls.js';
 import { Heart } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -60,17 +59,6 @@ function PlayPageClient() {
 
   // 收藏状态
   const [favorited, setFavorited] = useState(false);
-
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
-    script.async = true;
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
 
   // 跳过片头片尾配置
   const [skipConfig, setSkipConfig] = useState<{
@@ -1332,11 +1320,6 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
-        plugins: [
-          artplayerPluginChromecast({
-            receiverApplicationId: 'CC1AD845', // Replace with your Chromecast application ID
-          }),
-        ],
         // HLS 支持配置
         customType: {
           m3u8: function (video: HTMLVideoElement, url: string) {
@@ -1395,11 +1378,6 @@ function PlayPageClient() {
           loading:
             '<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIgdmlld0JveD0iMCAwIDUwIDUwIj48cGF0aCBkPSJNMjUuMjUxIDYuNDYxYy0xMC4zMTggMC0xOC42ODMgOC4zNjUtMTguNjgzIDE4LjY4M2g0LjA2OGMwLTguMDcgNi41NDUtMTQuNjE1IDE0LjYxNS0xNC42MTVWNi40NjF6IiBmaWxsPSIjMDA5Njg4Ij48YW5pbWF0ZVRyYW5zZm9ybSBhdHRyaWJ1dGVOYW1lPSJ0cmFuc2Zvcm0iIGF0dHJpYnV0ZVR5cGU9IlhNTCIgZHVyPSIxcyIgZnJvbT0iMCAyNSAyNSIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIHRvPSIzNjAgMjUgMjUiIHR5cGU9InJvdGF0ZSIvPjwvcGF0aD48L3N2Zz4=">',
         },
-        plugins: [
-          artplayerPluginChromecast({
-            receiverApplicationId: 'YOUR_CHROMECAST_APP_ID', // 替换为您的 Chromecast 应用程序 ID
-          }),
-        ],
         settings: [
           {
             html: '去广告',
@@ -1505,17 +1483,6 @@ function PlayPageClient() {
             tooltip: '播放下一集',
             click: function () {
               handleNextEpisode();
-            },
-          },
-          {
-            position: 'right',
-            index: 14,
-            html: '<i class="art-icon flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 5v14M7 9l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></i>',
-            tooltip: 'Cast to Chromecast',
-            click: function () {
-              if (artPlayerRef.current && artPlayerRef.current.chromecast) {
-                artPlayerRef.current.chromecast.cast();
-              }
             },
           },
         ],
