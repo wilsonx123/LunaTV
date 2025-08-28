@@ -1315,7 +1315,7 @@ function PlayPageClient() {
 
       // Conditionally add Chromecast plugin if SDK is loaded and plugin is available
       if (isChromecastSDKLoaded && typeof Chromecast === 'function') {
-        plugins.push(Chromecast({}));
+        plugins.push(Chromecast({})); // FIX: Pass an empty object as argument
         console.log("Chromecast plugin added to Artplayer instance.");
       } else {
         console.log("Artplayer initialized without Chromecast plugin (SDK not ready or plugin not found).");
@@ -1336,7 +1336,7 @@ function PlayPageClient() {
         setting: true,
         loop: false,
         flip: false,
-        playbackRate: lastPlaybackRateRef.current, // Use last saved playback rate
+        playbackRate: true, // FIX: Change back to boolean 'true' to enable the control
         aspectRatio: false,
         fullscreen: true,
         fullscreenWeb: true,
@@ -1415,7 +1415,7 @@ function PlayPageClient() {
         },
         icons: {
           loading:
-            '<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIgdmlld0JveD0iMCAwIDUwIDUwIj48cGF0aCBkPSJNMjUuMjUxIDYuNDYxYy0xMC4zMTggMC0xOC42ODMgOC4zNjUtMTguNjgzIDE4LjY4M2g0LjA2OGMwLTguMDcgNi41NDUtMTQuNjE1IDE0LjYxNS0xNC42MTVWNi40NjF6IiBmaWxsPSIjMDA5Njg4Ij48YW5pbWF0ZVRyYW5zZm9ybSBhdHRyaWJ1dGVOYW1lPSJ0cmFuc2Zvcm0iIGF0dHJpYnV0ZVR5cGU9IlhNTCIgZHVyPSIxcyIgZnJvbT0iMCAyNSAyNSIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIHRvPSIzNjAgMjUgMjUiIHR5cGU9InJvdGF0ZSIvPjwvcGF0aD48L3N2Zz4=">',
+            '<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIgdmlld0JveD0iMCAwIDUwIDUwIj48cGF0aCBkPSJNMjUuMjUxIDYuNDYxYy0xMC4zMTggMC0xOC42NjMgOC4zNjUtMTguNjYzIDE4LjY2M2g0LjA2OGMwLTguMDcgNi41NDUtMTQuNjE1IDE0LjYxNS0xNC42MTVWMi40NjF6IiBmaWxsPSIjMDA5Njg4Ij48YW5pbWF0ZVRyYW5zZm9ybSBhdHRyaWJ1dGVOYW1lPSJ0cmFuc2Zvcm0iIGF0dHJpYnV0ZVR5cGU9IlhNTCIgZHVyPSIxcyIgZnJvbT0iMCAyNSAyNSIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIHRvPSIzNjAgMjUgMjUiIHR5cGU9InJvdGF0ZSIvPjwvcGF0aD48L3N2Zz4=">',
         },
         settings: [
           {
@@ -1582,18 +1582,16 @@ function PlayPageClient() {
         resumeTimeRef.current = null;
 
         setTimeout(() => {
-          // Detect if Webkit based, this var inside the scope
-          const isWebkit = typeof window !== 'undefined' && typeof (window as any).webkitConvertPointFromNodeToPage === 'function';
-
           if (
             Math.abs(artPlayerRef.current.volume - lastVolumeRef.current) > 0.01
           ) {
             artPlayerRef.current.volume = lastVolumeRef.current;
           }
-          // Only apply playback rate if Webkit, as Artplayer handles it otherwise
+          // FIX: Always apply the lastPlaybackRateRef.current here after player is ready
+          // The config `playbackRate: true` merely controls the UI element.
           if (
-            Math.abs(artPlayerRef.current.playbackRate - lastPlaybackRateRef.current) > 0.01 &&
-            isWebkit
+            artPlayerRef.current &&
+            artPlayerRef.current.playbackRate !== lastPlaybackRateRef.current
           ) {
             artPlayerRef.current.playbackRate = lastPlaybackRateRef.current;
           }
@@ -1694,8 +1692,7 @@ function PlayPageClient() {
       setError('播放器初始化失败');
     }
 
-    // Cleanup function: Ensure player is destroyed when these dependencies change,
-    // forcing a clean re-initialization if needed.
+    // When components needs to re-mount due to dependencies change, ensure cleanup first
     return () => {
       if (artPlayerRef.current) {
         console.log("Artplayer useEffect clean up: destroying instance.");
