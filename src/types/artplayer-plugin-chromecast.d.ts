@@ -1,45 +1,63 @@
 // src/types/artplayer-plugin-chromecast.d.ts
 
-// Since the plugin integrates with Artplayer, we often need its types.
-import Artplayer from 'artplayer';
+// Since the plugin integrates with Artplayer, we need its types.
+// Using a namespace import can sometimes be more robust for external libraries.
+import * as Artplayer from 'artplayer';
 
-// Declare the module to redefine its type information.
-// We are effectively telling TypeScript: "This is what 'artplayer-plugin-chromecast' looks like."
+// Global augmentation for the 'Window' interface to include 'chrome.cast' if not already done.
+// This is necessary because your code accesses `window.chrome.cast.media`.
+// If you have already defined this elsewhere, remove this block to avoid duplicates.
+interface Window {
+  chrome?: {
+    cast?: {
+      media?: {
+        DEFAULT_MEDIA_RECEIVER_APP_ID: string;
+      };
+      // Allow other properties on window.chrome.cast for flexibility
+      [key: string]: any;
+    };
+    // Allow other properties on window.chrome for flexibility
+    [key: string]: any;
+  };
+}
+
+// Declare the 'artplayer-plugin-chromecast' module and define its types directly.
 declare module 'artplayer-plugin-chromecast' {
-  // Define the interface for the options object that the Chromecast plugin accepts.
-  // We use a specific name `ChromecastConfig` to avoid collision with any generic 'Option' type,
-  // even though the error message mentions 'Option'. Our goal is to ensure *this* type is used.
+  // This defines the exact structure for the options object passed to the Chromecast function.
+  // We name it `ChromecastConfig` to avoid conflicting with any generic `Option` type.
   export interface ChromecastConfig {
     /**
      * The ID of the Cast receiver application.
      * Default to chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID if not provided.
+     * Use 'string' as the type, as 'any' might reduce type safety unnecessarily here.
      */
     receiverApplicationID?: string;
 
     // IMPORTANT: If you discover any other valid configuration options for the Chromecast
-    // plugin (e.g., `debug: boolean`), you should add them here with their correct types.
-    // As per previous discussions, the `debug` option for this plugin led to a type error,
-    // so we're not including it here until confirmation it's a valid config.
-    [key: string]: any; // Allows other unknown properties for flexibility, but less type-safe.
+    // plugin, you should add them here with their correct types.
+    // For now, we are being strict, as an index signature `[key: string]: any;` might
+    // inadvertently allow the problematic `debug: true` property again if it's not actually supported.
+
+    // If the plugin *does* explicitly support other arbitrary options, you can add this line:
+    // [key: string]: any;
   }
 
-  /**
-   * Artplayer Chromecast Plugin factory function.
-   * This function takes configuration options and returns the actual Artplayer plugin object.
-   *
-   * @param config Optional configuration object for the Chromecast plugin.
-   * @returns An Artplayer plugin object, which Artplayer will initialize.
-   *          ArtPlayer expects plugins to be structured as an object or a function that returns an object,
-   *          but the `artplayer-plugin-chromecast`'s usage pattern suggests it's a function
-   *          that directly returns the plugin instance.
-   */
-  function Chromecast(config?: ChromecastConfig): (art: Artplayer) => {
-    name: string; // All Artplayer plugins usually have a 'name'
-    // Add other properties that the plugin exposes if they are part of its public API,
-    // otherwise, the `[key: string]: any` below handles untyped properties within the plugin object.
-    [key: string]: any; // Flexible for any other properties the plugin object might have
+  // This directly defines the signature of the default export of the module.
+  // It says: "The default export is a function `Chromecast` that takes an optional
+  // `ChromecastConfig` object and returns another function which is the actual plugin."
+  function Chromecast(config?: ChromecastConfig): (art: Artplayer.Artplayer) => {
+    // The returned object is the Artplayer plugin instance itself.
+    // Artplayer plugins usually have a `name` property.
+    name: string;
+    // They might also have lifecycle methods like `mount` and `destroy`.
+    mount?: (art: Artplayer.Artplayer) => void;
+    destroy?: (art: Artplayer.Artplayer) => void;
+
+    // Use an index signature here to allow for any other properties the
+    // plugin object itself might have that we don't explicitly list.
+    [key: string]: any;
   };
 
-  // Re-export this function as the default export of the module.
+  // Explicitly export this as the default.
   export default Chromecast;
 }
