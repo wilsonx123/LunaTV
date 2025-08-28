@@ -20,6 +20,13 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # Ensure checkout can push changes
 
+      # Install pnpm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.4 # Specify a stable pnpm version (adjust if needed)
+          run_install: false # We'll handle installation manually
+
       # Set up Node.js environment
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,13 +34,6 @@ jobs:
           node-version: '20.19.4' # Matches your error log (node:20.19.4)
           cache: 'pnpm' # Cache pnpm dependencies
           cache-dependency-path: '**/pnpm-lock.yaml'
-
-      # Install pnpm
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 8 # Adjust if a specific pnpm version is needed
-          run_install: false # We'll handle installation manually
 
       # Verify pnpm installation
       - name: Verify pnpm installation
