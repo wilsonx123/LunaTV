@@ -33,22 +33,22 @@ declare global {
   interface HTMLVideoElement {
     hls?: any;
   }
+
+  // Extend the global Window interface for Chromecast API
+  interface Window {
+    __onGCastApiAvailable?: (isAvailable: boolean) => void;
+    chrome?: {
+      cast?: any; // Define cast to allow access to chrome.cast
+    };
+  }
 }
 
-// Wake Lock API 类型声明
+// Wake Lock API 类型声明 (This remains the same, it's not a global interface augmentation for Window)
 interface WakeLockSentinel {
   released: boolean;
   release(): Promise<void>;
   addEventListener(type: 'release', listener: () => void): void;
   removeEventListener(type: 'release', listener: () => void): void;
-}
-
-// Extend window object for Chromecast API
-interface Window {
-  __onGCastApiAvailable?: (isAvailable: boolean) => void;
-  chrome?: {
-    cast?: any; // Define cast to allow access to chrome.cast
-  };
 }
 
 function PlayPageClient() {
