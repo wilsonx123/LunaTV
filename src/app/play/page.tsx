@@ -50,7 +50,6 @@ interface Window {
     cast?: any; // Define cast to allow access to chrome.cast
   };
 }
-declare var window: Window;
 
 function PlayPageClient() {
   const router = useRouter();
