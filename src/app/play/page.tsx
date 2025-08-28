@@ -58,23 +58,29 @@ interface WakeLockSentinel {
 
 // Chromecast Artplayer Plugin Definition
 class ChromecastPlugin {
-  // The 'factory' method takes options and returns the actual plugin scheme function
   static factory(
     pluginOptions: {
       videoTitleRef: React.MutableRefObject<string>;
       detailRef: React.MutableRefObject<SearchResult | null>;
       currentEpisodeIndexRef: React.MutableRefObject<number>;
       videoCover: string;
+      isCastSDKReady: boolean; // <-- ADD THIS OPTION
     }
   ) {
-    // This is the actual plugin 'scheme' function that Artplayer expects directly
-    // in its `plugins` array. It will now receive its options via closure.
+    // This is the actual plugin 'scheme' function that Artplayer expects
     return (art: any) => {
-      // Access pluginOptions from the closure
       const options = pluginOptions;
 
+      // Only proceed with full Chromecast plugin initialization if the SDK is ready
+      if (!options.isCastSDKReady) {
+        console.log('Artplayer Chromecast Plugin: SDK not ready, returning minimal plugin.');
+        return { name: 'chromecastPlugin' }; // Return minimal plugin, don't add button yet
+      }
+
+      console.log('Artplayer Chromecast Plugin: SDK is ready. Initializing full plugin features.');
+
       art.on('ready', () => {
-        // Ensure all necessary global objects are available before proceeding
+        // Double check just in case, though isCastSDKReady implies it
         if (
           window.cast &&
           window.cast.framework &&
@@ -94,6 +100,9 @@ class ChromecastPlugin {
                         <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
                         </svg>`,
             tooltip: '投屏到 Chromecast',
+            // Default visibility: hidden until devices are found or connected
+            // Or set initial state based on current cast status later
+            // style: { display: 'none' } // Optional: Hide initially
             click: async function () {
               console.log('Chromecast button clicked.');
               const currentVideoUrl = art.option.url;
@@ -111,21 +120,35 @@ class ChromecastPlugin {
             },
           });
 
-          const handleCastStateChange = (event: any) => {
+          // Helper interfaces for type safety (optional, but good practice)
+          interface CastStateChangeEvent { castState: typeof castFramework.CastState; }
+          interface SessionStateChangeEvent {
+            session: typeof castFramework.CastSession;
+            sessionState: typeof castFramework.SessionState;
+            errorCode?: string; // Or specific error code enum
+          }
+
+          const handleCastStateChange = (event: CastStateChangeEvent) => {
             art.emit('cast_state_changed', event.castState);
             const castControl = art.control.get('chromecast');
             if (castControl) {
-                if (event.castState === castFramework.CastState.CONNECTED) {
-                    castControl.tooltip = '已连接到 Chromecast';
-                } else if (event.castState === castFramework.CastState.CONNECTING) {
-                    castControl.tooltip = '连接中...';
+                const castState = event.castState;
+                if (castState === castFramework.CastState.NO_DEVICES_AVAILABLE) {
+                    castControl.$parent.style.display = 'none'; // Hide if no devices
                 } else {
-                    castControl.tooltip = '投屏到 Chromecast';
+                    castControl.$parent.style.display = 'block'; // Show if devices available or connected
+                    if (castState === castFramework.CastState.CONNECTED) {
+                        castControl.tooltip = '已连接到 Chromecast';
+                    } else if (castState === castFramework.CastState.CONNECTING) {
+                        castControl.tooltip = '连接中...';
+                    } else { // NOT_CONNECTED
+                        castControl.tooltip = '投屏到 Chromecast';
+                    }
                 }
             }
           };
 
-          const handleSessionStateChange = (event: any) => {
+          const handleSessionStateChange = (event: SessionStateChangeEvent) => {
             if (
               event.sessionState === castFramework.SessionState.SESSION_STARTED ||
               event.sessionState === castFramework.SessionState.SESSION_RESUMED
@@ -142,8 +165,8 @@ class ChromecastPlugin {
                   );
 
                   mediaInfo.metadata = new castMedia.GenericMediaMetadata();
-                  mediaInfo.metadata.title = options.videoTitleRef.current; // Use options from factory closure
-                  mediaInfo.metadata.subtitle = `来自 LunarTV - ${options.detailRef.current?.source_name || '未知来源'} - S${options.currentEpisodeIndexRef.current + 1}`; // Use options
+                  mediaInfo.metadata.title = options.videoTitleRef.current;
+                  mediaInfo.metadata.subtitle = `来自 LunarTV - ${options.detailRef.current?.source_name || '未知来源'} - S${options.currentEpisodeIndexRef.current + 1}`;
                   if (options.videoCover) {
                     mediaInfo.metadata.images = [{
                       url: processImageUrl(options.videoCover),
@@ -172,39 +195,61 @@ class ChromecastPlugin {
               }
             } else if (
               event.sessionState === castFramework.SessionState.SESSION_ENDED ||
-              event.sessionState === castFramework.SessionState.NO_SESSION
+              event.sessionState === castFramework.SessionState.NO_SESSION ||
+              event.sessionState === castFramework.SessionState.SESSION_START_FAILED
             ) {
-              console.log('Chromecast session ended or no session.');
+              console.log('Chromecast session ended, failed, or no session.');
               art.emit('cast_session_ended');
             }
           };
 
+          // Use `as any` if src/cast.d.ts event listener types are too general
+          // or properly define event listener types in cast.d.ts
           castContext.addEventListener(
             castFramework.CastContextEventType.CAST_STATE_CHANGED,
-            handleCastStateChange
+            handleCastStateChange as any // Consider refining cast.d.ts further to remove this `as any`
           );
           castContext.addEventListener(
             castFramework.CastContextEventType.SESSION_STATE_CHANGED,
-            handleSessionStateChange
+            handleSessionStateChange as any // Consider refining cast.d.ts further to remove this `as any`
           );
+
+          // Set initial visibility and tooltip for the button
+          const castControl = art.control.get('chromecast');
+          if (castControl) {
+              const currentCastState = castContext.getCastState();
+              if (currentCastState === castFramework.CastState.NO_DEVICES_AVAILABLE) {
+                  castControl.$parent.style.display = 'none';
+              } else {
+                  castControl.$parent.style.display = 'block';
+                  if (currentCastState === castFramework.CastState.CONNECTED) {
+                      castControl.tooltip = '已连接到 Chromecast';
+                  } else if (currentCastState === castFramework.CastState.CONNECTING) {
+                      castControl.tooltip = '连接中...';
+                  } else {
+                      castControl.tooltip = '投屏到 Chromecast';
+                  }
+              }
+          }
 
           art.on('destroy', () => {
             castContext.removeEventListener(
               castFramework.CastContextEventType.CAST_STATE_CHANGED,
-              handleCastStateChange
+              handleCastStateChange as any
             );
             castContext.removeEventListener(
               castFramework.CastContextEventType.SESSION_STATE_CHANGED,
-              handleSessionStateChange
+              handleSessionStateChange as any
             );
           });
         } else {
-          console.warn('Chromecast SDK is not available, skipping plugin initialization.');
+          console.warn('Chromecast SDK objects not found within Artplayer plugin. This should not happen if isCastSDKReady is true.');
         }
       });
 
       return {
         name: 'chromecastPlugin',
+        // Optional: initial properties or methods for the plugin itself
       };
     };
   }
@@ -212,8 +257,102 @@ class ChromecastPlugin {
 
 // The main page component
 export default function PlayPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  // ... (existing refs like artContainerRef, videoTitleRef, etc.) ...
+  const [isCastSDKReady, setIsCastSDKReady] = useState(false);
+  const castSDKLoadedRef = useRef(false); // To prevent multiple calls to initCastFramework
+
+  const initCastFramework = useCallback(() => {
+    // Check if the framework has *already* been initialized
+    if (castSDKLoadedRef.current) return;
+    castSDKLoadedRef.current = true;
+    console.log('initCastFramework: Attempting to initialize Cast SDK.');
+
+    // Ensure all necessary global objects are available
+    if (window.cast && window.cast.framework && window.chrome && window.chrome.cast && window.chrome.cast.media) {
+      console.log('initCastFramework: Global Cast objects detected. Initializing CastContext.');
+      const castFramework = window.cast.framework;
+      const castContext = castFramework.CastContext.getInstance();
+      const castMedia = window.chrome.cast.media;
+
+      castContext.setOptions({
+        receiverApplicationId: castMedia.DEFAULT_MEDIA_RECEIVER_APP_ID,
+        autoJoinPolicy: castFramework.AutoJoinPolicy.ORIGIN_SCOPED,
+      });
+      console.log('CastContext initialized.');
+      setIsCastSDKReady(true); // <-- SET STATE HERE WHEN SDK IS READY
+    } else {
+      console.warn('initCastFramework: Cast framework not fully available (missing window.cast or window.chrome.cast.media).');
+      // Potentially retry or set a state to indicate failure if needed
+    }
+  }, []); // Empty dependency array means this function is stable
+
+  // This useEffect sets up the global callback for the Cast SDK.
+  // This must run before the SDK script itself potentially calls `__onGCastApiAvailable`.
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log('Setting up window.__onGCastApiAvailable...');
+      window.__onGCastApiAvailable = (isAvailable: boolean) => {
+        if (isAvailable) {
+          console.log('__onGCastApiAvailable: Google Cast API is available.');
+          initCastFramework(); // Call our memoized initialization function
+        } else {
+          console.error('__onGCastApiAvailable: Google Cast API is NOT available.');
+          setIsCastSDKReady(false); // Make sure state reflects non-availability
+        }
+      };
+    }
+  }, [initCastFramework]); // Dependency on initCastFramework which is stable thanks to useCallback
+
+  // --- Artplayer Options ---
+  // Use useMemo to prevent unnecessary re-creations of artOptions
+  const artOptions: ArtplayerOptions = useMemo(() => {
+    return {
+      container: artContainerRef.current!, // Must be defined
+      // ... (your other Artplayer options) ...
+      plugins: [
+        ChromecastPlugin.factory({
+            videoTitleRef: videoTitleRef,
+            detailRef: detailRef,
+            currentEpisodeIndexRef: currentEpisodeIndexRef,
+            videoCover: videoCover,
+            isCastSDKReady: isCastSDKReady, // <-- PASS THE STATE HERE
+        }),
+        // ... (other plugins) ...
+      ],
+    };
+  }, [
+    // List all dependencies that would cause artOptions to change
+    artContainerRef, paused, playBackRate, // Example existing dependencies
+    videoTitleRef, detailRef, currentEpisodeIndexRef, videoCover,
+    isCastSDKReady, // <-- IMPORTANT: ARTPLAYER WILL RE-RENDER/RE-CREATE WHEN THIS CHANGES
+  ]);
+
+  // Use useEffect to manage Artplayer instance lifecycle
+  useEffect(() => {
+    if (artContainerRef.current) {
+
+      // Destroy any existing Artplayer instance before creating a new one
+      if (artRef.current) {
+        artRef.current.destroy();
+        artRef.current = null;
+      }
+
+      console.log('Creating Artplayer instance with current options...');
+      const art = new Artplayer(artOptions);
+      artRef.current = art;
+
+      // ... (your existing Artplayer event listeners on `art`) ...
+
+      return () => {
+        // Cleanup when component unmounts or artOptions change
+        if (artRef.current) {
+          console.log('Destroying Artplayer instance.');
+          artRef.current.destroy();
+          artRef.current = null;
+        }
+      };
+    }
+  }, [artOptions]); // <-- IMPORTANT: RE-RUN EFFECT WHEN ARTOPTIONS CHANGE
 
   // -----------------------------------------------------------------------------
   // State variables
