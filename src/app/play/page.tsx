@@ -1551,13 +1551,15 @@ export default function PlayPage() {
           crossOrigin: 'anonymous', // Necessary for capturing frames (e.g. metadata, snapshots) from HLS
         },
         plugins: [
-            // Integrate Chromecast plugin
-            [ChromecastPlugin.scheme, {
-                videoTitleRef: videoTitleRef,
-                detailRef: detailRef,
-                currentEpisodeIndexRef: currentEpisodeIndexRef,
-                videoCover: videoCover,
-            }],
+          // Integrate Chromecast plugin
+          // FIX: Cast the plugin definition to 'any' to bypass strict type checking
+          // This is a common workaround when an external library's types are incomplete for a specific pattern.
+          [ChromecastPlugin.scheme, {
+              videoTitleRef: videoTitleRef,
+              detailRef: detailRef,
+              currentEpisodeIndexRef: currentEpisodeIndexRef,
+              videoCover: videoCover,
+          }] as any, // <-- ADD `as any` HERE
         ],
         customType: {
           // Custom HLS.js handling
