@@ -3,6 +3,7 @@
 'use client';
 
 import Artplayer from 'artplayer';
+import artplayerPluginChromecast from 'artplayer-tool-chromecast';
 import Hls from 'hls.js';
 import { Heart } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -59,6 +60,17 @@ function PlayPageClient() {
 
   // 收藏状态
   const [favorited, setFavorited] = useState(false);
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   // 跳过片头片尾配置
   const [skipConfig, setSkipConfig] = useState<{
@@ -1317,10 +1329,14 @@ function PlayPageClient() {
         fastForward: true,
         autoOrientation: true,
         lock: true,
-        chromecast: true, // 启用 Chromecast 支持
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
+        plugins: [
+          artplayerPluginChromecast({
+            receiverApplicationId: 'CC1AD845', // Replace with your Chromecast application ID
+          }),
+        ],
         // HLS 支持配置
         customType: {
           m3u8: function (video: HTMLVideoElement, url: string) {
