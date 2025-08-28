@@ -1346,7 +1346,7 @@ function PlayPageClient() {
         plugins.push(Chromecast({
           // debug: true, // REMOVED: This property caused a Type error as it is not allowed by the plugin's Option type
           receiverApplicationID: (window.chrome.cast.media && window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID) || 'CC1AD845', // Fallback to a common generic ID
-        }));
+        } as any));
         console.log("Chromecast plugin added to Artplayer instance.");
       } else {
         console.log("Artplayer initialized without Chromecast plugin (SDK not ready, plugin not found, or window.chrome.cast missing). isChromecastSDKLoaded:", isChromecastSDKLoaded, "typeof Chromecast:", typeof Chromecast, "window.chrome.cast:", !!(window.chrome && window.chrome.cast));
