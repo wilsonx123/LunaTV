@@ -398,21 +398,27 @@ export default function PlayPage() {
    * This is called by `__onGCastApiAvailable` callback and `Script.onLoad`.
    */
   const initCastFramework = () => {
-    if (castSDKLoadedRef.current) return; // Prevent double initialization
+    if (castSDKLoadedRef.current) return;
     castSDKLoadedRef.current = true;
     console.log('Google Cast SDK script loaded and __onGCastApiAvailable called.');
 
-    if (window.cast && window.cast.framework) {
+    // --- FIX START ---
+    // Add checks for window.chrome and its nested properties before using them
+    if (window.cast && window.cast.framework && window.chrome && window.chrome.cast && window.chrome.cast.media) {
       console.log('Initializing CastContext globally...');
-      const castContext = window.cast.framework.CastContext.getInstance();
+      
+      // Use local constants for type narrowing and clarity
+      const castFramework = window.cast.framework;
+      const castMedia = window.chrome.cast.media;
+
+      const castContext = castFramework.CastContext.getInstance();
       castContext.setOptions({
-        receiverApplicationId: window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID, // Use the default media receiver application
-        autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED, // Automatically join existing sessions for the same origin
+        receiverApplicationId: castMedia.DEFAULT_MEDIA_RECEIVER_APP_ID, // Using local constant
+        autoJoinPolicy: castFramework.AutoJoinPolicy.ORIGIN_SCOPED,   // Using local constant
       });
       console.log('CastContext initialized.');
-      // At this point, the framework is ready, and Artplayer's plugin can find `window.cast`
     } else {
-      console.warn('Cast framework not available for global initialization.');
+      console.warn('Cast framework not fully available for global initialization (missing window.chrome.cast.media).');
     }
   };
 
