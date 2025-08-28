@@ -309,7 +309,12 @@ export default function PlayPage() {
   const artOptions: ArtplayerOptions = useMemo(() => {
     return {
       container: artContainerRef.current!, // Must be defined
-      // ... (your other Artplayer options) ...
+      url: videoUrl, // <--- ADD THIS LINE: Pass the videoUrl state here
+      // ... (your other Artplayer options, if any, go here) ...
+      // For example, if you have other options like playbackRate, volume, etc.
+      // playbackRate: playBackRate, // Example of another option
+      // volume: lastVolumeRef.current, // Example of another option
+
       plugins: [
         ChromecastPlugin.factory({
             videoTitleRef: videoTitleRef,
@@ -325,9 +330,9 @@ export default function PlayPage() {
     // List all dependencies that would cause artOptions to change
     artContainerRef, paused, playBackRate, // Example existing dependencies
     videoTitleRef, detailRef, currentEpisodeIndexRef, videoCover,
-    isCastSDKReady, // <-- IMPORTANT: ARTPLAYER WILL RE-RENDER/RE-CREATE WHEN THIS CHANGES
+    isCastSDKReady,
+    videoUrl, // <--- IMPORTANT: ADD videoUrl to the dependency array
   ]);
-
   // Use useEffect to manage Artplayer instance lifecycle
   useEffect(() => {
     if (artContainerRef.current) {
