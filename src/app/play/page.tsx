@@ -68,8 +68,15 @@ class ChromecastPlugin {
         window.cast.framework &&
         window.chrome &&
         window.chrome.cast &&
-        window.chrome.cast.media
+        window.chrome.cast.media // <-- All these checks ensure 'window.chrome.cast.media' is defined
       ) {
+        // --- FIX START ---
+        // Introduce local constants for better type inference within this scope
+        const castMedia = window.chrome.cast.media;
+        const castFramework = window.cast.framework;
+        const castContext = castFramework.CastContext.getInstance();
+        // --- FIX END ---
+
         // Add Chromecast button to Artplayer controls
         art.control.add({
           name: 'chromecast',
@@ -86,30 +93,25 @@ class ChromecastPlugin {
               return;
             }
 
-            const castContext = window.cast.framework.CastContext.getInstance();
+            // Using the locally scoped castContext (which relies on castFramework)
             try {
-              // Request a cast session, this will open the cast dialog
               await castContext.requestSession();
-              // Session handling continues via event listeners after a session is established
             } catch (error: any) {
-              // User cancelled, or other error occurred
               console.error('Error requesting Cast session:', error);
               art.notice.show = `投屏失败: ${error.message || '未知错误'}`;
             }
           },
         });
 
-        const castContext = window.cast.framework.CastContext.getInstance();
-
         // Event listener for Cast State Changes (e.g., CONNECTED, NOT_CONNECTED)
         const handleCastStateChange = (event: any) => {
           art.emit('cast_state_changed', event.castState); // Emit a custom Artplayer event
-          // Update button tooltip based on cast state for user feedback
           const castControl = art.control.get('chromecast');
           if (castControl) {
-            if (event.castState === window.cast.framework.CastState.CONNECTED) {
+            // Using castFramework for CastState enum
+            if (event.castState === castFramework.CastState.CONNECTED) {
               castControl.tooltip = '已连接到 Chromecast';
-            } else if (event.castState === window.cast.framework.CastState.CONNECTING) {
+            } else if (event.castState === castFramework.CastState.CONNECTING) {
               castControl.tooltip = '连接中...';
             } else {
               castControl.tooltip = '投屏到 Chromecast';
@@ -119,9 +121,10 @@ class ChromecastPlugin {
 
         // Event listener for Session State Changes (e.g., SESSION_STARTED, SESSION_ENDED)
         const handleSessionStateChange = (event: any) => {
+          // Using castFramework for SessionState enum
           if (
-            event.sessionState === window.cast.framework.SessionState.SESSION_STARTED ||
-            event.sessionState === window.cast.framework.SessionState.SESSION_RESUMED
+            event.sessionState === castFramework.SessionState.SESSION_STARTED ||
+            event.sessionState === castFramework.SessionState.SESSION_RESUMED
           ) {
             const currentSession = castContext.getCurrentSession();
             if (currentSession && art.option.url) {
@@ -129,12 +132,15 @@ class ChromecastPlugin {
                 const isMediaAlreadyLoaded = mediaStatus && mediaStatus.media && mediaStatus.media.contentId === art.option.url;
 
                 if (!isMediaAlreadyLoaded) {
-                    const mediaInfo = new window.chrome.cast.media.MediaInfo(
+                    // --- FIX START ---
+                    // Using the locally scoped 'castMedia' constant declared above
+                    const mediaInfo = new castMedia.MediaInfo( // Line 132 was here
                         art.option.url,
                         'application/x-mpegurl' // Specify content type for HLS
                     );
 
-                    mediaInfo.metadata = new window.chrome.cast.media.GenericMediaMetadata();
+                    mediaInfo.metadata = new castMedia.GenericMediaMetadata();
+                    // --- FIX END ---
                     mediaInfo.metadata.title = options.videoTitleRef.current;
                     mediaInfo.metadata.subtitle = `来自 LunarTV - ${options.detailRef.current?.source_name || '未知来源'} - S${options.currentEpisodeIndexRef.current + 1}`;
                     if (options.videoCover) {
@@ -144,7 +150,10 @@ class ChromecastPlugin {
                         }];
                     }
 
-                    const request = new window.chrome.cast.media.LoadRequest(mediaInfo);
+                    // --- FIX START ---
+                    // Using the locally scoped 'castMedia' constant
+                    const request = new castMedia.LoadRequest(mediaInfo);
+                    // --- FIX END ---
                     request.currentTime = art.currentTime || 0;
                     request.autoplay = true;
 
@@ -164,32 +173,32 @@ class ChromecastPlugin {
                 }
             }
           } else if (
-            event.sessionState === window.cast.framework.SessionState.SESSION_ENDED ||
-            event.sessionState === window.cast.framework.SessionState.NO_SESSION
+            event.sessionState === castFramework.SessionState.SESSION_ENDED || // Using castFramework
+            event.sessionState === castFramework.SessionState.NO_SESSION   // Using castFramework
           ) {
             console.log('Chromecast session ended or no session.');
             art.emit('cast_session_ended');
           }
         };
 
-        // Attach listeners to the CastContext
+        // Attach listeners to the CastContext (using locally scoped castContext)
         castContext.addEventListener(
-          window.cast.framework.CastContextEventType.CAST_STATE_CHANGED,
+          castFramework.CastContextEventType.CAST_STATE_CHANGED, // Using castFramework
           handleCastStateChange
         );
         castContext.addEventListener(
-          window.cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
+          castFramework.CastContextEventType.SESSION_STATE_CHANGED, // Using castFramework
           handleSessionStateChange
         );
 
         // Cleanup listeners when Artplayer instance is destroyed to prevent memory leaks
         art.on('destroy', () => {
           castContext.removeEventListener(
-            window.cast.framework.CastContextEventType.CAST_STATE_CHANGED,
+            castFramework.CastContextEventType.CAST_STATE_CHANGED,
             handleCastStateChange
           );
           castContext.removeEventListener(
-            window.cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
+            castFramework.CastContextEventType.SESSION_STATE_CHANGED,
             handleSessionStateChange
           );
         });
