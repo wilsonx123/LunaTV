@@ -43,6 +43,15 @@ interface WakeLockSentinel {
   removeEventListener(type: 'release', listener: () => void): void;
 }
 
+// Extend window object for Chromecast API
+interface Window {
+  __onGCastApiAvailable?: (isAvailable: boolean) => void;
+  chrome?: {
+    cast?: any; // Define cast to allow access to chrome.cast
+  };
+}
+declare var window: Window;
+
 function PlayPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1170,33 +1179,46 @@ function PlayPageClient() {
   useEffect(() => {
     // Define the global callback BEFORE attempting to load the script
     // This callback is triggered by the Google Cast SDK once it's ready.
-    (window as any).__onGCastApiAvailable = (isAvailable: boolean) => {
-      if (isAvailable) {
-        console.log('Google Cast API is available.');
+    if (typeof window !== 'undefined') {
+      window.__onGCastApiAvailable = (isAvailable: boolean) => {
+        if (isAvailable) {
+          console.log('Google Cast API is available.');
+          setIsChromecastSDKLoaded(true);
+        } else {
+          console.error('Google Cast API is NOT available.');
+          setIsChromecastSDKLoaded(false); // Ensure state is false if not available
+        }
+      };
+
+      // Check if the script is already loaded by checking for cast global object or script tag element
+      if (!(window.chrome && window.chrome.cast) && !document.getElementById('google-cast-sdk')) {
+        console.log('Loading Chromecast SDK script...');
+        const script = document.createElement('script');
+        script.id = 'google-cast-sdk';
+        script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+        script.async = true;
+        // The onload event for the script itself doesn't directly mean the API is ready,
+        // it calls window.__onGCastApiAvailable when ready.
+        script.onerror = (e) => {
+          console.error('Failed to load Chromecast SDK script:', e);
+          setIsChromecastSDKLoaded(false);
+        };
+        document.head.appendChild(script);
+        console.log('Chromecast SDK script tag appended.');
+      } else if (window.chrome && window.chrome.cast) {
+        // If it's already available (e.g., from a browser extension or previous load), set the state
+        console.log('Chromecast SDK already available (detected via window.chrome.cast).');
         setIsChromecastSDKLoaded(true);
       } else {
-        console.error('Google Cast API is not available.');
+         console.log('Chromecast SDK status: Already loading or not applicable.');
       }
-    };
-
-    // Check if the script is already loaded by checking for cast global object or script tag element
-    if (!(window as any).chrome?.cast && !document.getElementById('google-cast-sdk')) {
-      const script = document.createElement('script');
-      script.id = 'google-cast-sdk';
-      script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
-      script.async = true;
-      script.onerror = (e) => console.error('Failed to load Chromecast SDK script:', e);
-      document.head.appendChild(script);
-      console.log('Chromecast SDK script tag added.');
-    } else if ((window as any).chrome?.cast) {
-      // If it's already available (e.g., from a browser extension or previous load), set the state
-      console.log('Chromecast SDK already available.');
-      setIsChromecastSDKLoaded(true);
     }
 
     // Cleanup: Remove the global callback if the component unmounts before it was called
     return () => {
-      (window as any).__onGCastApiAvailable = undefined;
+      if (typeof window !== 'undefined') {
+        window.__onGCastApiAvailable = undefined;
+      }
     };
   }, []); // Run only once on mount
 
@@ -1274,10 +1296,9 @@ function PlayPageClient() {
       currentEpisodeIndex === null ||
       !artRef.current
     ) {
-      // Log for debugging if any essential dependency is missing
-      // console.log("Artplayer init cancelled: Missing dependency or loading state.", {
-      //   Artplayer: !!Artplayer, Hls: !!Hls, videoUrl: !!videoUrl, loading, currentEpisodeIndex, artRefCurrent: !!artRef.current
-      // });
+      console.log("Artplayer init cancelled: Missing dependency or loading state.", {
+        Artplayer: !!Artplayer, Hls: !!Hls, videoUrl: !!videoUrl, loading, currentEpisodeIndex, artRefCurrent: !!artRef.current
+      });
       return;
     }
 
@@ -1296,7 +1317,7 @@ function PlayPageClient() {
       setError('视频地址无效');
       return;
     }
-    console.log(`Video URL for player: ${videoUrl}`);
+    console.log(`Attempting to initialize Artplayer with URL: ${videoUrl}`);
 
     // If Artplayer instance already exists and any of the key dependencies (videoUrl, blockAdEnabled, isChromecastSDKLoaded,
     // currentEpisodeIndex, etc.) have changed, we need to re-initialize the player cleanly to apply new configurations,
@@ -1314,11 +1335,17 @@ function PlayPageClient() {
       const plugins = [];
 
       // Conditionally add Chromecast plugin if SDK is loaded and plugin is available
-      if (isChromecastSDKLoaded && typeof Chromecast === 'function') {
-        plugins.push(Chromecast({})); // FIX: Pass an empty object as argument
-        console.log("Chromecast plugin added to Artplayer instance.");
+      if (isChromecastSDKLoaded && typeof Chromecast === 'function' && window.chrome && window.chrome.cast) {
+        console.log("Chromecast SDK is loaded and Artplayer plugin is available. Adding Chromecast plugin.");
+        plugins.push(Chromecast({
+          debug: true, // IMPORTANT: Enable debug mode for more console output
+          // It's often safer to explicitly specify the default media receiver ID
+          // This ensures the Chromecast device knows which app to launch.
+          receiverApplicationId: (window.chrome.cast.media && window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID) || 'CC1AD845', // Fallback to a common generic ID
+        }));
+        console.log("Chromecast plugin added to Artplayer instance with debug mode.");
       } else {
-        console.log("Artplayer initialized without Chromecast plugin (SDK not ready or plugin not found).");
+        console.log("Artplayer initialized without Chromecast plugin (SDK not ready, plugin not found, or window.chrome.cast missing). isChromecastSDKLoaded:", isChromecastSDKLoaded, "typeof Chromecast:", typeof Chromecast);
       }
 
       artPlayerRef.current = new Artplayer({
@@ -1604,10 +1631,11 @@ function PlayPageClient() {
 
       // 监听视频时间更新事件，实现跳过片头片尾
       artPlayerRef.current.on('video:timeupdate', () => {
-        if (!skipConfigRef.current.enable) return;
+        const player = artPlayerRef.current;
+        if (!skipConfigRef.current.enable || !player || player.casting) return; // FIX: If casting, don't interfere with local playback (though it should be paused)
 
-        const currentTime = artPlayerRef.current.currentTime || 0;
-        const duration = artPlayerRef.current.duration || 0;
+        const currentTime = player.currentTime || 0;
+        const duration = player.duration || 0;
         const now = Date.now();
 
         // 限制跳过检查频率为1.5秒一次
@@ -1619,8 +1647,8 @@ function PlayPageClient() {
           skipConfigRef.current.intro_time > 0 &&
           currentTime < skipConfigRef.current.intro_time
         ) {
-          artPlayerRef.current.currentTime = skipConfigRef.current.intro_time;
-          artPlayerRef.current.notice.show = `已跳过片头 (${formatTime(
+          player.currentTime = skipConfigRef.current.intro_time;
+          player.notice.show = `已跳过片头 (${formatTime(
             skipConfigRef.current.intro_time
           )})`;
         }
@@ -1630,7 +1658,7 @@ function PlayPageClient() {
           skipConfigRef.current.outro_time < 0 &&
           duration > 0 &&
           currentTime >
-          artPlayerRef.current.duration + skipConfigRef.current.outro_time
+          player.duration + skipConfigRef.current.outro_time
         ) {
           if (
             currentEpisodeIndexRef.current <
@@ -1638,17 +1666,37 @@ function PlayPageClient() {
           ) {
             handleNextEpisode();
           } else {
-            artPlayerRef.current.pause();
+            player.pause();
           }
-          artPlayerRef.current.notice.show = `已跳过片尾 (${formatTime(
+          player.notice.show = `已跳过片尾 (${formatTime(
             skipConfigRef.current.outro_time
           )})`;
         }
+      });
+      
+      // FIX: Handle Chromecast specific events
+      artPlayerRef.current.on('chromecast:caststart', () => {
+        console.log('Chromecast: Casting started!');
+        // You might want to pause local playback or update UI
+        // artPlayerRef.current.pause(); // The plugin might do this automatically
+      });
+
+      artPlayerRef.current.on('chromecast:castend', () => {
+        console.log('Chromecast: Casting ended!');
+        // You might want to resume local playback or update UI
+        // artPlayerRef.current.play(); // Or handle resuming from last position
+      });
+
+      artPlayerRef.current.on('chromecast:castfail', (error: any) => {
+        console.error('Chromecast: Casting failed!', error);
+        // Display an error message to the user
+        artPlayerRef.current.notice.show = 'Chromecast投屏失败！请检查设备或网络。';
       });
 
       artPlayerRef.current.on('error', (err: any) => {
         console.error('播放器错误:', err);
         if (artPlayerRef.current.currentTime > 0) {
+          // If error happens during playback, don't clear it immediately
           return;
         }
         // setError('视频播放出错'); // Consider setting error more selectively
@@ -1658,7 +1706,8 @@ function PlayPageClient() {
       artPlayerRef.current.on('video:ended', () => {
         const d = detailRef.current;
         const idx = currentEpisodeIndexRef.current;
-        if (d && d.episodes && idx < d.episodes.length - 1) {
+        // Only auto-play next episode if not currently casting
+        if (d && d.episodes && idx < d.episodes.length - 1 && !artPlayerRef.current?.casting) {
           setTimeout(() => {
             setCurrentEpisodeIndex(idx + 1);
           }, 1000);
@@ -1666,19 +1715,26 @@ function PlayPageClient() {
       });
 
       artPlayerRef.current.on('video:timeupdate', () => {
-        const now = Date.now();
-        let interval = 5000;
-        if (process.env.NEXT_PUBLIC_STORAGE_TYPE === 'upstash') {
-          interval = 20000;
-        }
-        if (now - lastSaveTimeRef.current > interval) {
-          saveCurrentPlayProgress();
-          lastSaveTimeRef.current = now;
+        // Only save progress if player is not casting
+        const player = artPlayerRef.current;
+        if (player && !player.casting) { // FIX: Don't save progress if casting
+          const now = Date.now();
+          let interval = 5000;
+          if (process.env.NEXT_PUBLIC_STORAGE_TYPE === 'upstash') {
+            interval = 20000;
+          }
+          if (now - lastSaveTimeRef.current > interval) {
+            saveCurrentPlayProgress();
+            lastSaveTimeRef.current = now;
+          }
         }
       });
 
       artPlayerRef.current.on('pause', () => {
-        saveCurrentPlayProgress();
+        // Only save progress if player is not casting
+        if (artPlayerRef.current && !artPlayerRef.current.casting) { // FIX: Don't save progress if casting
+          saveCurrentPlayProgress();
+        }
       });
 
       if (artPlayerRef.current?.video) {
@@ -1709,6 +1765,11 @@ function PlayPageClient() {
     totalEpisodes, // For validation
     videoTitle,
     videoCover,
+    // Add other stable values used in player config (like lastVolumeRef.current, lastPlaybackRateRef.current)
+    // if you want their changes to trigger player re-initialization.
+    // However, it's generally better to update these properties on the player instance directly
+    // rather than re-initializing the whole player for every setting change.
+    // The current setup for volume/rate already updates it on canplay, which is good.
     // No need to add Artplayer, Hls, artRef.current as dependencies, as they are used to initialize.
   ]);
 
