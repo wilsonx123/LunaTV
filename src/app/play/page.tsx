@@ -26,25 +26,15 @@ import { getVideoResolutionFromM3u8, processImageUrl } from '@/lib/utils';
 
 import EpisodeSelector from '@/components/EpisodeSelector';
 import PageLayout from '@/components/PageLayout';
-import Chromecast from 'artplayer-plugin-chromecast'; // Import Artplayer Chromecast plugin
 
-// Global type declarations using 'declare global' for robust merging
+// 扩展 HTMLVideoElement 类型以支持 hls 属性
 declare global {
-  // Extend HTMLVideoElement type to support hls property
   interface HTMLVideoElement {
     hls?: any;
   }
-
-  // Extend the global Window interface for Chromecast API
-  interface Window {
-    __onGCastApiAvailable?: (isAvailable: boolean) => void;
-    chrome?: {
-      cast?: any; // Define cast to allow access to chrome.cast
-    };
-  }
 }
 
-// Wake Lock API type declaration (not global, but used in the component)
+// Wake Lock API 类型声明
 interface WakeLockSentinel {
   released: boolean;
   release(): Promise<void>;
@@ -212,9 +202,6 @@ function PlayPageClient() {
 
   const artPlayerRef = useRef<any>(null);
   const artRef = useRef<HTMLDivElement | null>(null);
-
-  // NEW STATE: Chromecast SDK loading status
-  const [isChromecastSDKLoaded, setIsChromecastSDKLoaded] = useState(false);
 
   // Wake Lock 相关
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
@@ -965,7 +952,7 @@ function PlayPageClient() {
   const handleEpisodeChange = (episodeNumber: number) => {
     if (episodeNumber >= 0 && episodeNumber < totalEpisodes) {
       // 在更换集数前保存当前播放进度
-      if (artPlayerRef.current && !artPlayerRef.current.paused) {
+      if (artPlayerRef.current && artPlayerRef.current.paused) {
         saveCurrentPlayProgress();
       }
       setCurrentEpisodeIndex(episodeNumber);
@@ -1103,12 +1090,6 @@ function PlayPageClient() {
     const currentTime = player.currentTime || 0;
     const duration = player.duration || 0;
 
-    // If player is casting, don't save local progress
-    if (player.casting) {
-      console.log('Skipping local play progress save: Chromecast is active.');
-      return;
-    }
-
     // 如果播放时间太短（少于5秒）或者视频时长无效，不保存
     if (currentTime < 1 || !duration) {
       return;
@@ -1170,9 +1151,9 @@ function PlayPageClient() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [saveCurrentPlayProgress, releaseWakeLock, requestWakeLock]); // Dependencies adjusted for stability
+  }, [currentEpisodeIndex, detail, artPlayerRef.current]);
 
-  // Cleanup for saveIntervalRef (already present)
+  // 清理定时器
   useEffect(() => {
     return () => {
       if (saveIntervalRef.current) {
@@ -1180,53 +1161,6 @@ function PlayPageClient() {
       }
     };
   }, []);
-
-  // NEW useEffect: Dynamically load Chromecast SDK script
-  useEffect(() => {
-    // Define the global callback BEFORE attempting to load the script
-    // This callback is triggered by the Google Cast SDK once it's ready.
-    if (typeof window !== 'undefined') {
-      window.__onGCastApiAvailable = (isAvailable: boolean) => {
-        if (isAvailable) {
-          console.log('Google Cast API is available.');
-          setIsChromecastSDKLoaded(true);
-        } else {
-          console.error('Google Cast API is NOT available.');
-          setIsChromecastSDKLoaded(false); // Ensure state is false if not available
-        }
-      };
-
-      // Check if the script is already loaded by checking for cast global object or script tag element
-      if (!(window.chrome && window.chrome.cast) && !document.getElementById('google-cast-sdk')) {
-        console.log('Loading Chromecast SDK script...');
-        const script = document.createElement('script');
-        script.id = 'google-cast-sdk';
-        script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
-        script.async = true;
-        // The onload event for the script itself doesn't directly mean the API is ready,
-        // it calls window.__onGCastApiAvailable when ready.
-        script.onerror = (e) => {
-          console.error('Failed to load Chromecast SDK script:', e);
-          setIsChromecastSDKLoaded(false);
-        };
-        document.head.appendChild(script);
-        console.log('Chromecast SDK script tag appended.');
-      } else if (window.chrome && window.chrome.cast) {
-        // If it's already available (e.g., from a browser extension or previous load), set the state
-        console.log('Chromecast SDK already available (detected via window.chrome.cast).');
-        setIsChromecastSDKLoaded(true);
-      } else {
-         console.log('Chromecast SDK status: Already loading or not applicable.');
-      }
-    }
-
-    // Cleanup: Remove the global callback if the component unmounts before it was called
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.__onGCastApiAvailable = undefined;
-      }
-    };
-  }, []); // Run only once on mount
 
   // ---------------------------------------------------------------------------
   // 收藏相关
@@ -1302,9 +1236,6 @@ function PlayPageClient() {
       currentEpisodeIndex === null ||
       !artRef.current
     ) {
-      console.log("Artplayer init cancelled: Missing dependency or loading state.", {
-        Artplayer: !!Artplayer, Hls: !!Hls, videoUrl: !!videoUrl, loading, currentEpisodeIndex, artRefCurrent: !!artRef.current
-      });
       return;
     }
 
@@ -1323,14 +1254,31 @@ function PlayPageClient() {
       setError('视频地址无效');
       return;
     }
-    console.log(`Attempting to initialize Artplayer with URL: ${videoUrl}`);
+    console.log(videoUrl);
 
-    // If Artplayer instance already exists and any of the key dependencies (videoUrl, blockAdEnabled, isChromecastSDKLoaded,
-    // currentEpisodeIndex, etc.) have changed, we need to re-initialize the player cleanly to apply new configurations,
-    // including the Chromecast plugin.
+    // 检测是否为WebKit浏览器
+    const isWebkit =
+      typeof window !== 'undefined' &&
+      typeof (window as any).webkitConvertPointFromNodeToPage === 'function';
+
+    // 非WebKit浏览器且播放器已存在，使用switch方法切换
+    if (!isWebkit && artPlayerRef.current) {
+      artPlayerRef.current.switch = videoUrl;
+      artPlayerRef.current.title = `${videoTitle} - 第${currentEpisodeIndex + 1
+        }集`;
+      artPlayerRef.current.poster = videoCover;
+      if (artPlayerRef.current?.video) {
+        ensureVideoSource(
+          artPlayerRef.current.video as HTMLVideoElement,
+          videoUrl
+        );
+      }
+      return;
+    }
+
+    // WebKit浏览器或首次创建：销毁之前的播放器实例并创建新的
     if (artPlayerRef.current) {
-      console.log("Existing Artplayer instance detected, cleaning up for re-initialization.");
-      cleanupPlayer(); // Clean up existing player to re-init with new config/plugins
+      cleanupPlayer();
     }
 
     try {
@@ -1338,25 +1286,11 @@ function PlayPageClient() {
       Artplayer.PLAYBACK_RATE = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
       Artplayer.USE_RAF = true;
 
-      const plugins = [];
-
-      // Conditionally add Chromecast plugin if SDK is loaded and plugin is available
-      if (isChromecastSDKLoaded && typeof Chromecast === 'function' && window.chrome && window.chrome.cast) {
-        console.log("Chromecast SDK is loaded and Artplayer plugin is available. Adding Chromecast plugin.");
-        plugins.push(Chromecast({
-          // debug: true, // REMOVED: This property caused a Type error as it is not allowed by the plugin's Option type
-          receiverApplicationID: (window.chrome.cast.media && window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID) || 'CC1AD845', // Fallback to a common generic ID
-        } as any));
-        console.log("Chromecast plugin added to Artplayer instance.");
-      } else {
-        console.log("Artplayer initialized without Chromecast plugin (SDK not ready, plugin not found, or window.chrome.cast missing). isChromecastSDKLoaded:", isChromecastSDKLoaded, "typeof Chromecast:", typeof Chromecast, "window.chrome.cast:", !!(window.chrome && window.chrome.cast));
-      }
-
       artPlayerRef.current = new Artplayer({
         container: artRef.current,
         url: videoUrl,
         poster: videoCover,
-        volume: lastVolumeRef.current, // Use last saved volume
+        volume: 0.7,
         isLive: false,
         muted: false,
         autoplay: true,
@@ -1367,7 +1301,7 @@ function PlayPageClient() {
         setting: true,
         loop: false,
         flip: false,
-        playbackRate: true, // FIX: Change back to boolean 'true' to enable the control
+        playbackRate: true,
         aspectRatio: false,
         fullscreen: true,
         fullscreenWeb: true,
@@ -1375,7 +1309,7 @@ function PlayPageClient() {
         miniProgressBar: false,
         mutex: true,
         playsInline: true,
-        autoPlayback: false, // Prevents Artplayer's internal autoplay from conflicting with resume time
+        autoPlayback: false,
         airplay: true,
         theme: '#22c55e',
         lang: 'zh-cn',
@@ -1383,13 +1317,10 @@ function PlayPageClient() {
         fastForward: true,
         autoOrientation: true,
         lock: true,
+        chromecast: true, // 启用 Chromecast 支持
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
-
-        // NEW: Plugins array
-        plugins: plugins, // Inject the dynamically created plugins array
-
         // HLS 支持配置
         customType: {
           m3u8: function (video: HTMLVideoElement, url: string) {
@@ -1446,8 +1377,13 @@ function PlayPageClient() {
         },
         icons: {
           loading:
-            '<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIgdmlld0JveD0iMCAwIDUwIDUwIj48cGF0aCBkPSJNMjUuMjUxIDYuNDYxYy0xMC4zMTggMC0xOC42NjMgOC4zNjUtMTguNjYzIDE4LjY2M2g0LjA2OGMwLTguMDcgNi41NDUtMTQuNjE1IDE0LjYxNS0xNC42MTVWMi40NjF6IiBmaWxsPSIjMDA5Njg4Ij48YW5pbWF0ZVRyYW5zZm9ybSBhdHRyaWJ1dGVOYW1lPSJ0cmFuc2Zvcm0iIGatttributeTypePSJYTVAzNCIgZHVyPSIxcyIgZnJvbT0iMCAyNSAyNSIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIHRvPSIzNjAgMjUgMjUiIHR5cGU9InJvdGF0ZSIvPjwvcGF0aD48L3N2Zz4=">',
+            '<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIgdmlld0JveD0iMCAwIDUwIDUwIj48cGF0aCBkPSJNMjUuMjUxIDYuNDYxYy0xMC4zMTggMC0xOC42ODMgOC4zNjUtMTguNjgzIDE4LjY4M2g0LjA2OGMwLTguMDcgNi41NDUtMTQuNjE1IDE0LjYxNS0xNC42MTVWNi40NjF6IiBmaWxsPSIjMDA5Njg4Ij48YW5pbWF0ZVRyYW5zZm9ybSBhdHRyaWJ1dGVOYW1lPSJ0cmFuc2Zvcm0iIGF0dHJpYnV0ZVR5cGU9IlhNTCIgZHVyPSIxcyIgZnJvbT0iMCAyNSAyNSIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIHRvPSIzNjAgMjUgMjUiIHR5cGU9InJvdGF0ZSIvPjwvcGF0aD48L3N2Zz4=">',
         },
+        plugins: [
+          artplayerPluginChromecast({
+            receiverApplicationId: 'YOUR_CHROMECAST_APP_ID', // 替换为您的 Chromecast 应用程序 ID
+          }),
+        ],
         settings: [
           {
             html: '去广告',
@@ -1468,7 +1404,7 @@ function PlayPageClient() {
                   artPlayerRef.current.destroy();
                   artPlayerRef.current = null;
                 }
-                setBlockAdEnabled(newVal); // Trigger re-render and re-initialization
+                setBlockAdEnabled(newVal);
               } catch (_) {
                 // ignore
               }
@@ -1555,6 +1491,17 @@ function PlayPageClient() {
               handleNextEpisode();
             },
           },
+          {
+            position: 'right',
+            index: 14,
+            html: '<i class="art-icon flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 5v14M7 9l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></i>',
+            tooltip: 'Cast to Chromecast',
+            click: function () {
+              if (artPlayerRef.current && artPlayerRef.current.chromecast) {
+                artPlayerRef.current.chromecast.cast();
+              }
+            },
+          },
         ],
       });
 
@@ -1582,7 +1529,7 @@ function PlayPageClient() {
         releaseWakeLock();
       });
 
-      // If player initialized in playing state, request Wake Lock
+      // 如果播放器初始化时已经在播放状态，则请求 Wake Lock
       if (artPlayerRef.current && !artPlayerRef.current.paused) {
         requestWakeLock();
       }
@@ -1618,10 +1565,11 @@ function PlayPageClient() {
           ) {
             artPlayerRef.current.volume = lastVolumeRef.current;
           }
-          // Always apply the lastPlaybackRateRef.current here after player is ready
           if (
-            artPlayerRef.current &&
-            artPlayerRef.current.playbackRate !== lastPlaybackRateRef.current
+            Math.abs(
+              artPlayerRef.current.playbackRate - lastPlaybackRateRef.current
+            ) > 0.01 &&
+            isWebkit
           ) {
             artPlayerRef.current.playbackRate = lastPlaybackRateRef.current;
           }
@@ -1634,11 +1582,10 @@ function PlayPageClient() {
 
       // 监听视频时间更新事件，实现跳过片头片尾
       artPlayerRef.current.on('video:timeupdate', () => {
-        const player = artPlayerRef.current;
-        if (!skipConfigRef.current.enable || !player || player.casting) return; // If casting, don't interfere with local playback
+        if (!skipConfigRef.current.enable) return;
 
-        const currentTime = player.currentTime || 0;
-        const duration = player.duration || 0;
+        const currentTime = artPlayerRef.current.currentTime || 0;
+        const duration = artPlayerRef.current.duration || 0;
         const now = Date.now();
 
         // 限制跳过检查频率为1.5秒一次
@@ -1650,8 +1597,8 @@ function PlayPageClient() {
           skipConfigRef.current.intro_time > 0 &&
           currentTime < skipConfigRef.current.intro_time
         ) {
-          player.currentTime = skipConfigRef.current.intro_time;
-          player.notice.show = `已跳过片头 (${formatTime(
+          artPlayerRef.current.currentTime = skipConfigRef.current.intro_time;
+          artPlayerRef.current.notice.show = `已跳过片头 (${formatTime(
             skipConfigRef.current.intro_time
           )})`;
         }
@@ -1661,7 +1608,7 @@ function PlayPageClient() {
           skipConfigRef.current.outro_time < 0 &&
           duration > 0 &&
           currentTime >
-          player.duration + skipConfigRef.current.outro_time
+          artPlayerRef.current.duration + skipConfigRef.current.outro_time
         ) {
           if (
             currentEpisodeIndexRef.current <
@@ -1669,48 +1616,26 @@ function PlayPageClient() {
           ) {
             handleNextEpisode();
           } else {
-            player.pause();
+            artPlayerRef.current.pause();
           }
-          player.notice.show = `已跳过片尾 (${formatTime(
+          artPlayerRef.current.notice.show = `已跳过片尾 (${formatTime(
             skipConfigRef.current.outro_time
           )})`;
         }
-      });
-      
-      // Handle Chromecast specific events
-      artPlayerRef.current.on('chromecast:caststart', () => {
-        console.log('Chromecast: Casting started!');
-        // The plugin usually handles pausing local playback automatically.
-        // You might want to update UI to reflect casting state.
-      });
-
-      artPlayerRef.current.on('chromecast:castend', () => {
-        console.log('Chromecast: Casting ended!');
-        // You might want to resume local playback or update UI.
-        // artPlayerRef.current.play(); // Or handle resuming from last position
-      });
-
-      artPlayerRef.current.on('chromecast:castfail', (error: any) => {
-        console.error('Chromecast: Casting failed!', error);
-        // Display an error message to the user
-        artPlayerRef.current.notice.show = 'Chromecast投屏失败！请检查设备或网络。';
       });
 
       artPlayerRef.current.on('error', (err: any) => {
         console.error('播放器错误:', err);
         if (artPlayerRef.current.currentTime > 0) {
-          // If error happens during playback, don't clear it immediately
           return;
         }
-        // setError('视频播放出错'); // Consider setting error more selectively
       });
 
       // 监听视频播放结束事件，自动播放下一集
       artPlayerRef.current.on('video:ended', () => {
         const d = detailRef.current;
         const idx = currentEpisodeIndexRef.current;
-        // Only auto-play next episode if not currently casting
-        if (d && d.episodes && idx < d.episodes.length - 1 && !artPlayerRef.current?.casting) {
+        if (d && d.episodes && idx < d.episodes.length - 1) {
           setTimeout(() => {
             setCurrentEpisodeIndex(idx + 1);
           }, 1000);
@@ -1718,26 +1643,19 @@ function PlayPageClient() {
       });
 
       artPlayerRef.current.on('video:timeupdate', () => {
-        // Only save progress if player is not casting
-        const player = artPlayerRef.current;
-        if (player && !player.casting) { // Don't save progress if casting
-          const now = Date.now();
-          let interval = 5000;
-          if (process.env.NEXT_PUBLIC_STORAGE_TYPE === 'upstash') {
-            interval = 20000;
-          }
-          if (now - lastSaveTimeRef.current > interval) {
-            saveCurrentPlayProgress();
-            lastSaveTimeRef.current = now;
-          }
+        const now = Date.now();
+        let interval = 5000;
+        if (process.env.NEXT_PUBLIC_STORAGE_TYPE === 'upstash') {
+          interval = 20000;
+        }
+        if (now - lastSaveTimeRef.current > interval) {
+          saveCurrentPlayProgress();
+          lastSaveTimeRef.current = now;
         }
       });
 
       artPlayerRef.current.on('pause', () => {
-        // Only save progress if player is not casting
-        if (artPlayerRef.current && !artPlayerRef.current.casting) { // Don't save progress if casting
-          saveCurrentPlayProgress();
-        }
+        saveCurrentPlayProgress();
       });
 
       if (artPlayerRef.current?.video) {
@@ -1747,39 +1665,26 @@ function PlayPageClient() {
         );
       }
     } catch (err) {
-      console.error('Error creating Artplayer:', err);
+      console.error('创建播放器失败:', err);
       setError('播放器初始化失败');
     }
+  }, [Artplayer, Hls, videoUrl, loading, blockAdEnabled]);
 
-    // When components needs to re-mount due to dependencies change, ensure cleanup first
-    return () => {
-      if (artPlayerRef.current) {
-        console.log("Artplayer useEffect clean up: destroying instance.");
-        cleanupPlayer();
-      }
-    };
-  }, [
-    videoUrl,
-    loading,
-    blockAdEnabled,
-    isChromecastSDKLoaded, // Re-initialize if Chromecast SDK state changes
-    currentEpisodeIndex, // Re-initialize on episode change
-    detail, // Re-initialize if detail data effectively changes
-    totalEpisodes, // For validation
-    videoTitle,
-    videoCover,
-  ]);
-
-  // When component unmounts, ensure cleanup
+  // 当组件卸载时清理定时器、Wake Lock 和播放器资源
   useEffect(() => {
     return () => {
+      // 清理定时器
       if (saveIntervalRef.current) {
         clearInterval(saveIntervalRef.current);
       }
+
+      // 释放 Wake Lock
       releaseWakeLock();
+
+      // 销毁播放器实例
       cleanupPlayer();
     };
-  }, []); // Empty dependency array means this runs only on mount and unmount
+  }, []);
 
   if (loading) {
     return (
