@@ -1,0 +1,49 @@
+name: Install artplayer-tool-chromecast and Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Node.js environment
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Specify your Node.js version (adjust if needed)
+          cache: 'pnpm' # Cache pnpm dependencies for faster builds
+
+      # Install pnpm
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      # Install project dependencies
+      - name: Install dependencies
+        run: pnpm install
+
+      # Explicitly install artplayer-tool-chromecast
+      - name: Install artplayer-tool-chromecast
+        run: pnpm add artplayer-tool-chromecast
+
+      # Build the Next.js project
+      - name: Build project
+        run: pnpm run build
+
+      # Optional: Run tests (if applicable)
+      - name: Run tests
+        run: pnpm run test
+        if: failure() # Only run if you have tests; remove or adjust as needed
+
+      # Optional: Deploy or further steps
+      # Add deployment steps here if needed (e.g., deploy to Vercel, Docker build, etc.)
