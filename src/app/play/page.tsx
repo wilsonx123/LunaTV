@@ -257,11 +257,11 @@ class ChromecastPlugin {
 
 // The main page component
 export default function PlayPage() {
-  // ... (existing refs like artContainerRef, videoTitleRef, etc.) ...
+  // ... (your existing refs like artContainerRef, videoTitleRef, etc.) ...
   const [isCastSDKReady, setIsCastSDKReady] = useState(false);
-  const castSDKLoadedRef = useRef(false); // To prevent multiple calls to initCastFramework
+  const castSDKLoadedRef = useRef(false); // <-- KEEP THIS ONE (the first one)
 
-  const initCastFramework = useCallback(() => {
+  const initCastFramework = useCallback(() => { // <-- KEEP THIS ONE (the first one)
     // Check if the framework has *already* been initialized
     if (castSDKLoadedRef.current) return;
     castSDKLoadedRef.current = true;
@@ -286,8 +286,7 @@ export default function PlayPage() {
     }
   }, []); // Empty dependency array means this function is stable
 
-  // This useEffect sets up the global callback for the Cast SDK.
-  // This must run before the SDK script itself potentially calls `__onGCastApiAvailable`.
+  // This useEffect sets up the global callback for the Cast SDK. (KEEP THIS ONE)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       console.log('Setting up window.__onGCastApiAvailable...');
@@ -522,41 +521,9 @@ export default function PlayPage() {
   // Chromecast casting status
   const [isCasting, setIsCasting] = useState(false);
 
-  // Ref to track if cast SDK has been loaded and initialized to prevent re-initialization
-  const castSDKLoadedRef = useRef(false);
-
   // -----------------------------------------------------------------------------
   // Utility and Helper Functions
   // -----------------------------------------------------------------------------
-
-  /**
-   * Initializes the Google Cast Framework.
-   * This is called by `__onGCastApiAvailable` callback and `Script.onLoad`.
-   */
-  const initCastFramework = () => {
-    if (castSDKLoadedRef.current) return;
-    castSDKLoadedRef.current = true;
-    console.log('Google Cast SDK script loaded and __onGCastApiAvailable called.');
-
-    // --- FIX START ---
-    // Add checks for window.chrome and its nested properties before using them
-    if (window.cast && window.cast.framework && window.chrome && window.chrome.cast && window.chrome.cast.media) {
-      console.log('Initializing CastContext globally...');
-      
-      // Use local constants for type narrowing and clarity
-      const castFramework = window.cast.framework;
-      const castMedia = window.chrome.cast.media;
-
-      const castContext = castFramework.CastContext.getInstance();
-      castContext.setOptions({
-        receiverApplicationId: castMedia.DEFAULT_MEDIA_RECEIVER_APP_ID, // Using local constant
-        autoJoinPolicy: castFramework.AutoJoinPolicy.ORIGIN_SCOPED,   // Using local constant
-      });
-      console.log('CastContext initialized.');
-    } else {
-      console.warn('Cast framework not fully available for global initialization (missing window.chrome.cast.media).');
-    }
-  };
 
   /**
    * Prefers the best source among available sources by testing video quality, load speed, and ping.
