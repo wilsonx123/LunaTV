@@ -1,4 +1,4 @@
-name: Install artplayer-tool-chromecast and Build
+name: Add Chromecast Plugin and Build
 
 on:
   push:
@@ -7,48 +7,66 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
-  build:
+  add-dependency-and-build:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository code
-      - name: Checkout code
+      # Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }} # Ensure checkout can push changes
 
       # Set up Node.js environment
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Match your project's Node.js version (20.19.4 from error)
-          cache: 'pnpm' # Cache pnpm dependencies for faster builds
+          node-version: '20.19.4' # Matches your error log (node:20.19.4)
+          cache: 'pnpm' # Cache pnpm dependencies
+          cache-dependency-path: '**/pnpm-lock.yaml'
 
-      # Install pnpm using pnpm/action-setup
+      # Install pnpm
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8 # Specify pnpm version (adjust if needed, e.g., latest or specific version)
-          run_install: false # We'll run pnpm install in a separate step
+          version: 8 # Adjust if a specific pnpm version is needed
+          run_install: false # We'll handle installation manually
 
       # Verify pnpm installation
       - name: Verify pnpm installation
-        run: pnpm --version
+        run: |
+          echo "PATH: $PATH"
+          which pnpm || echo "pnpm not found"
+          pnpm --version || echo "pnpm version command failed"
+        shell: bash
 
       # Install project dependencies
       - name: Install dependencies
         run: pnpm install
+        shell: bash
 
-      # Explicitly install artplayer-tool-chromecast
+      # Install artplayer-tool-chromecast
       - name: Install artplayer-tool-chromecast
         run: pnpm add artplayer-tool-chromecast
+        shell: bash
 
       # Build the Next.js project
       - name: Build project
         run: pnpm run build
+        shell: bash
 
-      # Optional: Run tests if they exist
-      # Uncomment the following step if your project has a test script
-      # - name: Run tests
-      #   run: pnpm run test
-      #   continue-on-error: true # Allow workflow to continue if tests fail
+      # Commit changes to package.json and pnpm-lock.yaml
+      - name: Commit changes
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add package.json pnpm-lock.yaml
+          git commit -m "Add artplayer-tool-chromecast dependency" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        continue-on-error: true # Allow workflow to continue if no changes to commit
