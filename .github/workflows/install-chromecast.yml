@@ -17,18 +17,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Set up Node.js environment with pnpm
+      # Set up Node.js environment
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Adjust to match your project's Node.js version
+          node-version: '20' # Match your project's Node.js version (20.19.4 from error)
           cache: 'pnpm' # Cache pnpm dependencies for faster builds
 
-      # Install pnpm
+      # Install pnpm using pnpm/action-setup
       - name: Install pnpm
-        run: |
-          npm install -g pnpm
-          pnpm --version # Verify pnpm installation
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8 # Specify pnpm version (adjust if needed, e.g., latest or specific version)
+          run_install: false # We'll run pnpm install in a separate step
+
+      # Verify pnpm installation
+      - name: Verify pnpm installation
+        run: pnpm --version
 
       # Install project dependencies
       - name: Install dependencies
