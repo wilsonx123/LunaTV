@@ -26,10 +26,11 @@ import { getVideoResolutionFromM3u8, processImageUrl } from '@/lib/utils';
 
 import EpisodeSelector from '@/components/EpisodeSelector';
 import PageLayout from '@/components/PageLayout';
-import Chromecast from 'artplayer-plugin-chromecast'; // NEW: Import Artplayer Chromecast plugin
+import Chromecast from 'artplayer-plugin-chromecast'; // Import Artplayer Chromecast plugin
 
-// 扩展 HTMLVideoElement 类型以支持 hls 属性
+// Global type declarations using 'declare global' for robust merging
 declare global {
+  // Extend HTMLVideoElement type to support hls property
   interface HTMLVideoElement {
     hls?: any;
   }
@@ -43,7 +44,7 @@ declare global {
   }
 }
 
-// Wake Lock API 类型声明 (This remains the same, it's not a global interface augmentation for Window)
+// Wake Lock API type declaration (not global, but used in the component)
 interface WakeLockSentinel {
   released: boolean;
   release(): Promise<void>;
@@ -964,7 +965,7 @@ function PlayPageClient() {
   const handleEpisodeChange = (episodeNumber: number) => {
     if (episodeNumber >= 0 && episodeNumber < totalEpisodes) {
       // 在更换集数前保存当前播放进度
-      if (artPlayerRef.current && artPlayerRef.current.paused) {
+      if (artPlayerRef.current && !artPlayerRef.current.paused) {
         saveCurrentPlayProgress();
       }
       setCurrentEpisodeIndex(episodeNumber);
@@ -1101,6 +1102,12 @@ function PlayPageClient() {
     const player = artPlayerRef.current;
     const currentTime = player.currentTime || 0;
     const duration = player.duration || 0;
+
+    // If player is casting, don't save local progress
+    if (player.casting) {
+      console.log('Skipping local play progress save: Chromecast is active.');
+      return;
+    }
 
     // 如果播放时间太短（少于5秒）或者视频时长无效，不保存
     if (currentTime < 1 || !duration) {
@@ -1337,14 +1344,12 @@ function PlayPageClient() {
       if (isChromecastSDKLoaded && typeof Chromecast === 'function' && window.chrome && window.chrome.cast) {
         console.log("Chromecast SDK is loaded and Artplayer plugin is available. Adding Chromecast plugin.");
         plugins.push(Chromecast({
-          debug: true, // IMPORTANT: Enable debug mode for more console output
-          // It's often safer to explicitly specify the default media receiver ID
-          // This ensures the Chromecast device knows which app to launch.
+          // debug: true, // REMOVED: This property caused a Type error as it is not allowed by the plugin's Option type
           receiverApplicationId: (window.chrome.cast.media && window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID) || 'CC1AD845', // Fallback to a common generic ID
         }));
-        console.log("Chromecast plugin added to Artplayer instance with debug mode.");
+        console.log("Chromecast plugin added to Artplayer instance.");
       } else {
-        console.log("Artplayer initialized without Chromecast plugin (SDK not ready, plugin not found, or window.chrome.cast missing). isChromecastSDKLoaded:", isChromecastSDKLoaded, "typeof Chromecast:", typeof Chromecast);
+        console.log("Artplayer initialized without Chromecast plugin (SDK not ready, plugin not found, or window.chrome.cast missing). isChromecastSDKLoaded:", isChromecastSDKLoaded, "typeof Chromecast:", typeof Chromecast, "window.chrome.cast:", !!(window.chrome && window.chrome.cast));
       }
 
       artPlayerRef.current = new Artplayer({
@@ -1441,7 +1446,7 @@ function PlayPageClient() {
         },
         icons: {
           loading:
-            '<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIgdmlld0JveD0iMCAwIDUwIDUwIj48cGF0aCBkPSJNMjUuMjUxIDYuNDYxYy0xMC4zMTggMC0xOC42NjMgOC4zNjUtMTguNjYzIDE4LjY2M2g0LjA2OGMwLTguMDcgNi41NDUtMTQuNjE1IDE0LjYxNS0xNC42MTVWMi40NjF6IiBmaWxsPSIjMDA5Njg4Ij48YW5pbWF0ZVRyYW5zZm9ybSBhdHRyaWJ1dGVOYW1lPSJ0cmFuc2Zvcm0iIGF0dHJpYnV0ZVR5cGU9IlhNTCIgZHVyPSIxcyIgZnJvbT0iMCAyNSAyNSIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIHRvPSIzNjAgMjUgMjUiIHR5cGU9InJvdGF0ZSIvPjwvcGF0aD48L3N2Zz4=">',
+            '<img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIgdmlld0JveD0iMCAwIDUwIDUwIj48cGF0aCBkPSJNMjUuMjUxIDYuNDYxYy0xMC4zMTggMC0xOC42NjMgOC4zNjUtMTguNjYzIDE4LjY2M2g0LjA2OGMwLTguMDcgNi41NDUtMTQuNjE1IDE0LjYxNS0xNC42MTVWMi40NjF6IiBmaWxsPSIjMDA5Njg4Ij48YW5pbWF0ZVRyYW5zZm9ybSBhdHRyaWJ1dGVOYW1lPSJ0cmFuc2Zvcm0iIGatttributeTypePSJYTVAzNCIgZHVyPSIxcyIgZnJvbT0iMCAyNSAyNSIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIHRvPSIzNjAgMjUgMjUiIHR5cGU9InJvdGF0ZSIvPjwvcGF0aD48L3N2Zz4=">',
         },
         settings: [
           {
@@ -1613,8 +1618,7 @@ function PlayPageClient() {
           ) {
             artPlayerRef.current.volume = lastVolumeRef.current;
           }
-          // FIX: Always apply the lastPlaybackRateRef.current here after player is ready
-          // The config `playbackRate: true` merely controls the UI element.
+          // Always apply the lastPlaybackRateRef.current here after player is ready
           if (
             artPlayerRef.current &&
             artPlayerRef.current.playbackRate !== lastPlaybackRateRef.current
@@ -1631,7 +1635,7 @@ function PlayPageClient() {
       // 监听视频时间更新事件，实现跳过片头片尾
       artPlayerRef.current.on('video:timeupdate', () => {
         const player = artPlayerRef.current;
-        if (!skipConfigRef.current.enable || !player || player.casting) return; // FIX: If casting, don't interfere with local playback (though it should be paused)
+        if (!skipConfigRef.current.enable || !player || player.casting) return; // If casting, don't interfere with local playback
 
         const currentTime = player.currentTime || 0;
         const duration = player.duration || 0;
@@ -1673,16 +1677,16 @@ function PlayPageClient() {
         }
       });
       
-      // FIX: Handle Chromecast specific events
+      // Handle Chromecast specific events
       artPlayerRef.current.on('chromecast:caststart', () => {
         console.log('Chromecast: Casting started!');
-        // You might want to pause local playback or update UI
-        // artPlayerRef.current.pause(); // The plugin might do this automatically
+        // The plugin usually handles pausing local playback automatically.
+        // You might want to update UI to reflect casting state.
       });
 
       artPlayerRef.current.on('chromecast:castend', () => {
         console.log('Chromecast: Casting ended!');
-        // You might want to resume local playback or update UI
+        // You might want to resume local playback or update UI.
         // artPlayerRef.current.play(); // Or handle resuming from last position
       });
 
@@ -1716,7 +1720,7 @@ function PlayPageClient() {
       artPlayerRef.current.on('video:timeupdate', () => {
         // Only save progress if player is not casting
         const player = artPlayerRef.current;
-        if (player && !player.casting) { // FIX: Don't save progress if casting
+        if (player && !player.casting) { // Don't save progress if casting
           const now = Date.now();
           let interval = 5000;
           if (process.env.NEXT_PUBLIC_STORAGE_TYPE === 'upstash') {
@@ -1731,7 +1735,7 @@ function PlayPageClient() {
 
       artPlayerRef.current.on('pause', () => {
         // Only save progress if player is not casting
-        if (artPlayerRef.current && !artPlayerRef.current.casting) { // FIX: Don't save progress if casting
+        if (artPlayerRef.current && !artPlayerRef.current.casting) { // Don't save progress if casting
           saveCurrentPlayProgress();
         }
       });
@@ -1758,18 +1762,12 @@ function PlayPageClient() {
     videoUrl,
     loading,
     blockAdEnabled,
-    isChromecastSDKLoaded, // ADDED: Re-initialize if Chromecast SDK state changes
+    isChromecastSDKLoaded, // Re-initialize if Chromecast SDK state changes
     currentEpisodeIndex, // Re-initialize on episode change
     detail, // Re-initialize if detail data effectively changes
     totalEpisodes, // For validation
     videoTitle,
     videoCover,
-    // Add other stable values used in player config (like lastVolumeRef.current, lastPlaybackRateRef.current)
-    // if you want their changes to trigger player re-initialization.
-    // However, it's generally better to update these properties on the player instance directly
-    // rather than re-initializing the whole player for every setting change.
-    // The current setup for volume/rate already updates it on canplay, which is good.
-    // No need to add Artplayer, Hls, artRef.current as dependencies, as they are used to initialize.
   ]);
 
   // When component unmounts, ensure cleanup
