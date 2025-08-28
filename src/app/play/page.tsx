@@ -58,159 +58,156 @@ interface WakeLockSentinel {
 
 // Chromecast Artplayer Plugin Definition
 class ChromecastPlugin {
-  static scheme = (art: any, options: any) => {
-    options = options || {};
+  // The 'factory' method takes options and returns the actual plugin scheme function
+  static factory(
+    pluginOptions: {
+      videoTitleRef: React.MutableRefObject<string>;
+      detailRef: React.MutableRefObject<SearchResult | null>;
+      currentEpisodeIndexRef: React.MutableRefObject<number>;
+      videoCover: string;
+    }
+  ) {
+    // This is the actual plugin 'scheme' function that Artplayer expects directly
+    // in its `plugins` array. It will now receive its options via closure.
+    return (art: any) => {
+      // Access pluginOptions from the closure
+      const options = pluginOptions;
 
-    art.on('ready', () => {
-      // Check if Chromecast SDK is available and fully initialized before adding controls
-      if (
-        window.cast &&
-        window.cast.framework &&
-        window.chrome &&
-        window.chrome.cast &&
-        window.chrome.cast.media // <-- All these checks ensure 'window.chrome.cast.media' is defined
-      ) {
-        // --- FIX START ---
-        // Introduce local constants for better type inference within this scope
-        const castMedia = window.chrome.cast.media;
-        const castFramework = window.cast.framework;
-        const castContext = castFramework.CastContext.getInstance();
-        // --- FIX END ---
+      art.on('ready', () => {
+        // Ensure all necessary global objects are available before proceeding
+        if (
+          window.cast &&
+          window.cast.framework &&
+          window.chrome &&
+          window.chrome.cast &&
+          window.chrome.cast.media
+        ) {
+          const castMedia = window.chrome.cast.media;
+          const castFramework = window.cast.framework;
+          const castContext = castFramework.CastContext.getInstance();
 
-        // Add Chromecast button to Artplayer controls
-        art.control.add({
-          name: 'chromecast',
-          position: 'right', // Position it on the right side of the control bar
-          html: `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22" class="art-icon art-control-chromecast-custom">
-                  <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
-                  </svg>`, // SVG icon representing Chromecast
-          tooltip: '投屏到 Chromecast',
-          click: async function () {
-            console.log('Chromecast button clicked.');
-            const currentVideoUrl = art.option.url; // Get the current video URL from Artplayer options
-            if (!currentVideoUrl) {
-              art.notice.show = '没有可用的视频地址进行投屏';
-              return;
+          // Add Chromecast button to Artplayer controls
+          art.control.add({
+            name: 'chromecast',
+            position: 'right',
+            html: `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22" class="art-icon art-control-chromecast-custom">
+                        <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+                        </svg>`,
+            tooltip: '投屏到 Chromecast',
+            click: async function () {
+              console.log('Chromecast button clicked.');
+              const currentVideoUrl = art.option.url;
+              if (!currentVideoUrl) {
+                art.notice.show = '没有可用的视频地址进行投屏';
+                return;
+              }
+
+              try {
+                await castContext.requestSession();
+              } catch (error: any) {
+                console.error('Error requesting Cast session:', error);
+                art.notice.show = `投屏失败: ${error.message || '未知错误'}`;
+              }
+            },
+          });
+
+          const handleCastStateChange = (event: any) => {
+            art.emit('cast_state_changed', event.castState);
+            const castControl = art.control.get('chromecast');
+            if (castControl) {
+                if (event.castState === castFramework.CastState.CONNECTED) {
+                    castControl.tooltip = '已连接到 Chromecast';
+                } else if (event.castState === castFramework.CastState.CONNECTING) {
+                    castControl.tooltip = '连接中...';
+                } else {
+                    castControl.tooltip = '投屏到 Chromecast';
+                }
             }
+          };
 
-            // Using the locally scoped castContext (which relies on castFramework)
-            try {
-              await castContext.requestSession();
-            } catch (error: any) {
-              console.error('Error requesting Cast session:', error);
-              art.notice.show = `投屏失败: ${error.message || '未知错误'}`;
-            }
-          },
-        });
-
-        // Event listener for Cast State Changes (e.g., CONNECTED, NOT_CONNECTED)
-        const handleCastStateChange = (event: any) => {
-          art.emit('cast_state_changed', event.castState); // Emit a custom Artplayer event
-          const castControl = art.control.get('chromecast');
-          if (castControl) {
-            // Using castFramework for CastState enum
-            if (event.castState === castFramework.CastState.CONNECTED) {
-              castControl.tooltip = '已连接到 Chromecast';
-            } else if (event.castState === castFramework.CastState.CONNECTING) {
-              castControl.tooltip = '连接中...';
-            } else {
-              castControl.tooltip = '投屏到 Chromecast';
-            }
-          }
-        };
-
-        // Event listener for Session State Changes (e.g., SESSION_STARTED, SESSION_ENDED)
-        const handleSessionStateChange = (event: any) => {
-          // Using castFramework for SessionState enum
-          if (
-            event.sessionState === castFramework.SessionState.SESSION_STARTED ||
-            event.sessionState === castFramework.SessionState.SESSION_RESUMED
-          ) {
-            const currentSession = castContext.getCurrentSession();
-            if (currentSession && art.option.url) {
+          const handleSessionStateChange = (event: any) => {
+            if (
+              event.sessionState === castFramework.SessionState.SESSION_STARTED ||
+              event.sessionState === castFramework.SessionState.SESSION_RESUMED
+            ) {
+              const currentSession = castContext.getCurrentSession();
+              if (currentSession && art.option.url) {
                 const mediaStatus = currentSession.getMediaSession();
                 const isMediaAlreadyLoaded = mediaStatus && mediaStatus.media && mediaStatus.media.contentId === art.option.url;
 
                 if (!isMediaAlreadyLoaded) {
-                    // --- FIX START ---
-                    // Using the locally scoped 'castMedia' constant declared above
-                    const mediaInfo = new castMedia.MediaInfo( // Line 132 was here
-                        art.option.url,
-                        'application/x-mpegurl' // Specify content type for HLS
-                    );
+                  const mediaInfo = new castMedia.MediaInfo(
+                    art.option.url,
+                    'application/x-mpegurl'
+                  );
 
-                    mediaInfo.metadata = new castMedia.GenericMediaMetadata();
-                    // --- FIX END ---
-                    mediaInfo.metadata.title = options.videoTitleRef.current;
-                    mediaInfo.metadata.subtitle = `来自 LunarTV - ${options.detailRef.current?.source_name || '未知来源'} - S${options.currentEpisodeIndexRef.current + 1}`;
-                    if (options.videoCover) {
-                        mediaInfo.metadata.images = [{
-                           url: processImageUrl(options.videoCover),
-                           height: 720, width: 1280
-                        }];
-                    }
+                  mediaInfo.metadata = new castMedia.GenericMediaMetadata();
+                  mediaInfo.metadata.title = options.videoTitleRef.current; // Use options from factory closure
+                  mediaInfo.metadata.subtitle = `来自 LunarTV - ${options.detailRef.current?.source_name || '未知来源'} - S${options.currentEpisodeIndexRef.current + 1}`; // Use options
+                  if (options.videoCover) {
+                    mediaInfo.metadata.images = [{
+                      url: processImageUrl(options.videoCover),
+                      height: 720, width: 1280
+                    }];
+                  }
 
-                    // --- FIX START ---
-                    // Using the locally scoped 'castMedia' constant
-                    const request = new castMedia.LoadRequest(mediaInfo);
-                    // --- FIX END ---
-                    request.currentTime = art.currentTime || 0;
-                    request.autoplay = true;
+                  const request = new castMedia.LoadRequest(mediaInfo);
+                  request.currentTime = art.currentTime || 0;
+                  request.autoplay = true;
 
-                    currentSession.loadMedia(request)
-                      .then(() => {
-                        console.log('Media loaded successfully on Chromecast.');
-                        art.emit('cast_session_started');
-                      })
-                      .catch((error: any) => {
-                        console.error('Error loading media to Chromecast:', error);
-                        art.notice.show = `投屏加载失败: ${error.message || '未知错误'}`;
-                        currentSession.stop();
-                      });
+                  currentSession.loadMedia(request)
+                    .then(() => {
+                      console.log('Media loaded successfully on Chromecast.');
+                      art.emit('cast_session_started');
+                    })
+                    .catch((error: any) => {
+                      console.error('Error loading media to Chromecast:', error);
+                      art.notice.show = `投屏加载失败: ${error.message || '未知错误'}`;
+                      currentSession.stop();
+                    });
                 } else {
-                    console.log('Media already loaded on Chromecast, resuming session.');
-                    art.emit('cast_session_started');
+                  console.log('Media already loaded on Chromecast, resuming session.');
+                  art.emit('cast_session_started');
                 }
+              }
+            } else if (
+              event.sessionState === castFramework.SessionState.SESSION_ENDED ||
+              event.sessionState === castFramework.SessionState.NO_SESSION
+            ) {
+              console.log('Chromecast session ended or no session.');
+              art.emit('cast_session_ended');
             }
-          } else if (
-            event.sessionState === castFramework.SessionState.SESSION_ENDED || // Using castFramework
-            event.sessionState === castFramework.SessionState.NO_SESSION   // Using castFramework
-          ) {
-            console.log('Chromecast session ended or no session.');
-            art.emit('cast_session_ended');
-          }
-        };
+          };
 
-        // Attach listeners to the CastContext (using locally scoped castContext)
-        castContext.addEventListener(
-          castFramework.CastContextEventType.CAST_STATE_CHANGED, // Using castFramework
-          handleCastStateChange
-        );
-        castContext.addEventListener(
-          castFramework.CastContextEventType.SESSION_STATE_CHANGED, // Using castFramework
-          handleSessionStateChange
-        );
-
-        // Cleanup listeners when Artplayer instance is destroyed to prevent memory leaks
-        art.on('destroy', () => {
-          castContext.removeEventListener(
+          castContext.addEventListener(
             castFramework.CastContextEventType.CAST_STATE_CHANGED,
             handleCastStateChange
           );
-          castContext.removeEventListener(
+          castContext.addEventListener(
             castFramework.CastContextEventType.SESSION_STATE_CHANGED,
             handleSessionStateChange
           );
-        });
-      } else {
-        console.warn('Chromecast SDK is not available, skipping plugin initialization.');
-      }
-    });
 
-    return {
-      name: 'chromecastPlugin',
+          art.on('destroy', () => {
+            castContext.removeEventListener(
+              castFramework.CastContextEventType.CAST_STATE_CHANGED,
+              handleCastStateChange
+            );
+            castContext.removeEventListener(
+              castFramework.CastContextEventType.SESSION_STATE_CHANGED,
+              handleSessionStateChange
+            );
+          });
+        } else {
+          console.warn('Chromecast SDK is not available, skipping plugin initialization.');
+        }
+      });
+
+      return {
+        name: 'chromecastPlugin',
+      };
     };
-  };
+  }
 }
 
 // The main page component
@@ -1550,16 +1547,20 @@ export default function PlayPage() {
         moreVideoAttr: {
           crossOrigin: 'anonymous', // Necessary for capturing frames (e.g. metadata, snapshots) from HLS
         },
+
         plugins: [
-          // Integrate Chromecast plugin
-          // FIX: Cast the plugin definition to 'any' to bypass strict type checking
-          // This is a common workaround when an external library's types are incomplete for a specific pattern.
-          [ChromecastPlugin.scheme, {
+          // If you have other plugins without options, they go here directly as functions:
+          // ArtplayerPluginHls, // Example
+
+          // Integrate Chromecast plugin using the new factory pattern
+          ChromecastPlugin.factory({ // Call factory to get the function for plugins array
               videoTitleRef: videoTitleRef,
               detailRef: detailRef,
               currentEpisodeIndexRef: currentEpisodeIndexRef,
               videoCover: videoCover,
-          }] as any, // <-- ADD `as any` HERE
+          }),
+          // If you have other plugins with options, you'll need to adapt them similarly
+          // if Artplayer is consistently requiring functions directly.
         ],
         customType: {
           // Custom HLS.js handling
