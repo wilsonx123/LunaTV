@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps, no-console, @next/next/no-img-element */
 
 import Artplayer from 'artplayer';
-import type { Option as ArtplayerOptions } from 'artplayer';
+type ArtplayerOptions = ConstructorParameters<typeof Artplayer>[0];
 import Hls from 'hls.js';
 import { Heart } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
