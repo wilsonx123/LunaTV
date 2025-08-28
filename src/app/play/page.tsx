@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps, no-console, @next/next/no-img-element */
 
 import Artplayer from 'artplayer';
+import type { Option as ArtplayerOptions } from 'artplayer';
 import Hls from 'hls.js';
 import { Heart } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -514,7 +515,8 @@ export default function PlayPage() {
 
   // Artplayer instance and ref to its container DOM element
   const artPlayerRef = useRef<any>(null);
-  const artRef = useRef<HTMLDivElement | null>(null);
+  const artRef = useRef<Artplayer | null>(null);
+  const artContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Wake Lock related
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
