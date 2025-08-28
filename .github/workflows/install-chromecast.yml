@@ -24,14 +24,14 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8.15.4 # Specify a stable pnpm version (adjust if needed)
+          version: 10.14.0 # Match package.json packageManager version
           run_install: false # We'll handle installation manually
 
       # Set up Node.js environment
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.19.4' # Matches your error log (node:20.19.4)
+          node-version: '20.19.4' # Matches your Docker setup (node:20.19.4)
           cache: 'pnpm' # Cache pnpm dependencies
           cache-dependency-path: '**/pnpm-lock.yaml'
 
