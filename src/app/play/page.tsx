@@ -1315,7 +1315,7 @@ function PlayPageClient() {
 
       // Conditionally add Chromecast plugin if SDK is loaded and plugin is available
       if (isChromecastSDKLoaded && typeof Chromecast === 'function') {
-        plugins.push(Chromecast());
+        plugins.push(Chromecast({}));
         console.log("Chromecast plugin added to Artplayer instance.");
       } else {
         console.log("Artplayer initialized without Chromecast plugin (SDK not ready or plugin not found).");
