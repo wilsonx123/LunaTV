@@ -2,7 +2,6 @@
 
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import Script from 'next/script'; // Import Next.js Script component
 
 import './globals.css';
 
@@ -107,17 +106,6 @@ export default async function RootLayout({
             __html: `window.RUNTIME_CONFIG = ${JSON.stringify(runtimeConfig)};`,
           }}
         />
-
-        {/* --- ADD GOOGLE CAST SDK SCRIPT HERE --- */}
-        {/* Using next/script for optimal loading behavior in Next.js App Router */}
-        <Script
-          src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"
-          strategy="beforeInteractive" // Load before React hydration
-          async // Recommended for external scripts
-          // You can also use 'onLoad' prop if you need to perform an action precisely when *this* script loads,
-          // but for Cast SDK, window.__onGCastApiAvailable is the official callback.
-        />
-        {/* -------------------------------------- */}
       </head>
       <body
         className={`${inter.className} min-h-screen bg-white text-gray-900 dark:bg-black dark:text-gray-200`}
