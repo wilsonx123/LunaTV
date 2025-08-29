@@ -1321,10 +1321,14 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
-        // Chromecast plugin - now enabled with default configuration
+        // Chromecast plugin - now enabled with proper configuration
         plugins: [
           artplayerPluginChromecast({
-            // Plugin will use default settings - no additional configuration needed
+            // Use default receiver application - works with most Chromecast devices
+            receiverApplicationId: 'CC1AD845', // Default Chromecast receiver app
+            // Additional safety settings
+            autoJoinPolicy: 'origin_scoped',
+            androidReceiverCompatible: true,
           }),
         ],
         // HLS 支持配置
@@ -1504,7 +1508,7 @@ function PlayPageClient() {
           requestWakeLock();
         }
 
-        // Chromecast plugin is now enabled - setting up event handlers
+        // Chromecast plugin is now enabled - setting up event handlers with better error handling
         if (artPlayerRef.current && artPlayerRef.current.chromecast) {
           try {
             // Handle Chromecast connection
@@ -1523,13 +1527,36 @@ function PlayPageClient() {
               }
             });
 
-            // Handle Chromecast errors
+            // Handle Chromecast errors with better error handling
             artPlayerRef.current.chromecast.on('error', (error: any) => {
               console.error('Chromecast error:', error);
               if (artPlayerRef.current) {
                 artPlayerRef.current.notice.show = 'Chromecast 连接出错';
               }
             });
+
+            // Add loadMedia error handling
+            if (artPlayerRef.current.chromecast.loadMedia) {
+              const originalLoadMedia = artPlayerRef.current.chromecast.loadMedia;
+              artPlayerRef.current.chromecast.loadMedia = function (...args: any[]) {
+                try {
+                  // Check if Chromecast session is ready
+                  if (!artPlayerRef.current?.chromecast?.session) {
+                    console.warn('Chromecast session not ready, cannot load media');
+                    if (artPlayerRef.current) {
+                      artPlayerRef.current.notice.show = 'Chromecast 未准备就绪';
+                    }
+                    return;
+                  }
+                  return originalLoadMedia.apply(this, args);
+                } catch (error) {
+                  console.error('Chromecast loadMedia error:', error);
+                  if (artPlayerRef.current) {
+                    artPlayerRef.current.notice.show = 'Chromecast 加载媒体失败';
+                  }
+                }
+              };
+            }
 
             console.log('Chromecast event handlers initialized successfully');
           } catch (error) {
