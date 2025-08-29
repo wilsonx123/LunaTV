@@ -1505,57 +1505,8 @@ function PlayPageClient() {
           requestWakeLock();
         }
 
-        // Chromecast event handlers - with better error handling and retry logic
-        const initChromecastHandlers = () => {
-          if (artPlayerRef.current && artPlayerRef.current.chromecast) {
-            try {
-              artPlayerRef.current.chromecast.on('connect', () => {
-                console.log('Chromecast connected');
-                if (artPlayerRef.current) {
-                  artPlayerRef.current.notice.show = '已连接到 Chromecast';
-                }
-              });
-
-              artPlayerRef.current.chromecast.on('disconnect', () => {
-                console.log('Chromecast disconnected');
-                if (artPlayerRef.current) {
-                  artPlayerRef.current.notice.show = '已断开 Chromecast 连接';
-                }
-              });
-
-              artPlayerRef.current.chromecast.on('error', (error: any) => {
-                console.error('Chromecast error:', error);
-                if (artPlayerRef.current) {
-                  artPlayerRef.current.notice.show = 'Chromecast 连接出错';
-                }
-              });
-
-              console.log('Chromecast event handlers initialized successfully');
-              return true;
-            } catch (error) {
-              console.warn('Chromecast event handler setup failed:', error);
-              return false;
-            }
-          } else {
-            console.warn('Chromecast plugin not available or not initialized');
-            return false;
-          }
-        };
-
-        // Try to initialize immediately, then retry with delays
-        if (!initChromecastHandlers()) {
-          // Retry after 1 second
-          setTimeout(() => {
-            if (!initChromecastHandlers()) {
-              // Retry after 3 seconds
-              setTimeout(() => {
-                if (!initChromecastHandlers()) {
-                  console.warn('Chromecast plugin failed to initialize after multiple attempts');
-                }
-              }, 2000);
-            }
-          }, 1000);
-        }
+        // Chromecast plugin is temporarily disabled - no event handlers needed
+        console.log('Chromecast plugin is disabled - skipping initialization');
       });
 
       // 监听播放状态变化，控制 Wake Lock
