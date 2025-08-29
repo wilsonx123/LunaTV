@@ -1321,11 +1321,12 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
-        // Chromecast plugin - now properly initialized with SDK loaded in layout
+        // Chromecast plugin temporarily disabled due to initialization issues
+        // TODO: Re-enable once plugin initialization is properly resolved
         plugins: [
-          artplayerPluginChromecast({
-            // Basic configuration - plugin will use default settings
-          }),
+          // artplayerPluginChromecast({
+          //   // Basic configuration - plugin will use default settings
+          // }),
         ],
         // HLS 支持配置
         customType: {
@@ -1504,8 +1505,8 @@ function PlayPageClient() {
           requestWakeLock();
         }
 
-        // Chromecast event handlers - with better error handling
-        setTimeout(() => {
+        // Chromecast event handlers - with better error handling and retry logic
+        const initChromecastHandlers = () => {
           if (artPlayerRef.current && artPlayerRef.current.chromecast) {
             try {
               artPlayerRef.current.chromecast.on('connect', () => {
@@ -1530,13 +1531,31 @@ function PlayPageClient() {
               });
 
               console.log('Chromecast event handlers initialized successfully');
+              return true;
             } catch (error) {
               console.warn('Chromecast event handler setup failed:', error);
+              return false;
             }
           } else {
             console.warn('Chromecast plugin not available or not initialized');
+            return false;
           }
-        }, 1000); // Delay to ensure plugin is fully initialized
+        };
+
+        // Try to initialize immediately, then retry with delays
+        if (!initChromecastHandlers()) {
+          // Retry after 1 second
+          setTimeout(() => {
+            if (!initChromecastHandlers()) {
+              // Retry after 3 seconds
+              setTimeout(() => {
+                if (!initChromecastHandlers()) {
+                  console.warn('Chromecast plugin failed to initialize after multiple attempts');
+                }
+              }, 2000);
+            }
+          }, 1000);
+        }
       });
 
       // 监听播放状态变化，控制 Wake Lock
