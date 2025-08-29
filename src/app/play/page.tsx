@@ -1321,12 +1321,14 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
-        // Chromecast plugin temporarily disabled due to initialization issues
-        // TODO: Re-enable once plugin initialization is properly resolved
+        // Chromecast plugin - now enabled with proper configuration
         plugins: [
-          // artplayerPluginChromecast({
-          //   // Basic configuration - plugin will use default settings
-          // }),
+          artplayerPluginChromecast({
+            // Basic configuration for Chromecast
+            receiverApplicationId: '4F8B3484', // Replace with your actual app ID if needed
+            autoJoinPolicy: 'origin_scoped', // Only join sessions from same origin
+            androidReceiverCompatible: true, // Support Android TV
+          }),
         ],
         // HLS 支持配置
         customType: {
@@ -1505,8 +1507,40 @@ function PlayPageClient() {
           requestWakeLock();
         }
 
-        // Chromecast plugin is temporarily disabled - no event handlers needed
-        console.log('Chromecast plugin is disabled - skipping initialization');
+        // Chromecast plugin is now enabled - setting up event handlers
+        if (artPlayerRef.current && artPlayerRef.current.chromecast) {
+          try {
+            // Handle Chromecast connection
+            artPlayerRef.current.chromecast.on('connect', () => {
+              console.log('Chromecast connected successfully');
+              if (artPlayerRef.current) {
+                artPlayerRef.current.notice.show = '已连接到 Chromecast';
+              }
+            });
+
+            // Handle Chromecast disconnection
+            artPlayerRef.current.chromecast.on('disconnect', () => {
+              console.log('Chromecast disconnected');
+              if (artPlayerRef.current) {
+                artPlayerRef.current.notice.show = '已断开 Chromecast 连接';
+              }
+            });
+
+            // Handle Chromecast errors
+            artPlayerRef.current.chromecast.on('error', (error: any) => {
+              console.error('Chromecast error:', error);
+              if (artPlayerRef.current) {
+                artPlayerRef.current.notice.show = 'Chromecast 连接出错';
+              }
+            });
+
+            console.log('Chromecast event handlers initialized successfully');
+          } catch (error) {
+            console.warn('Chromecast event handler setup failed:', error);
+          }
+        } else {
+          console.log('Chromecast plugin enabled but not yet available - will initialize when ready');
+        }
       });
 
       // 监听播放状态变化，控制 Wake Lock
