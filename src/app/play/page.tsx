@@ -1324,7 +1324,7 @@ function PlayPageClient() {
         // Chromecast plugin configuration
         plugins: [
           artplayerPluginChromecast({
-            sdk: 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js',
+            // SDK URL and MIME type are optional and auto-detected
           }),
         ],
         // HLS 支持配置
@@ -1490,24 +1490,6 @@ function PlayPageClient() {
             tooltip: '播放下一集',
             click: function () {
               handleNextEpisode();
-            },
-          },
-          {
-            position: 'right',
-            index: 1,
-            html: '<i class="art-icon flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zM1 14v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zm20-7H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" fill="currentColor"/></svg></i>',
-            tooltip: 'Chromecast',
-            click: function () {
-              if (artPlayerRef.current?.chromecast) {
-                try {
-                  artPlayerRef.current.chromecast.cast();
-                } catch (error) {
-                  console.error('Chromecast cast failed:', error);
-                  artPlayerRef.current.notice.show = 'Chromecast 不可用';
-                }
-              } else {
-                artPlayerRef.current.notice.show = 'Chromecast 未初始化';
-              }
             },
           },
         ],
