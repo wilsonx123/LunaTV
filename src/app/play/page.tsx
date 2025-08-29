@@ -1321,14 +1321,11 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
-        // Chromecast plugin - now enabled with proper configuration
+        // Chromecast plugin - now enabled with default configuration
         plugins: [
           artplayerPluginChromecast({
-            // Use default receiver application - works with most Chromecast devices
-            receiverApplicationId: 'CC1AD845', // Default Chromecast receiver app
-            // Additional safety settings
-            autoJoinPolicy: 'origin_scoped',
-            androidReceiverCompatible: true,
+            // Plugin will use default settings - compatible with most Chromecast devices
+            // No additional configuration needed as the plugin handles defaults internally
           }),
         ],
         // HLS 支持配置
