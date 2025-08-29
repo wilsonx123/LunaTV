@@ -1505,59 +1505,96 @@ function PlayPageClient() {
           requestWakeLock();
         }
 
-        // Chromecast plugin is now enabled - setting up event handlers with better error handling
+        // Chromecast plugin is now enabled - setting up event handlers with comprehensive error handling
         if (artPlayerRef.current && artPlayerRef.current.chromecast) {
           try {
-            // Handle Chromecast connection
-            artPlayerRef.current.chromecast.on('connect', () => {
-              console.log('Chromecast connected successfully');
-              if (artPlayerRef.current) {
-                artPlayerRef.current.notice.show = '已连接到 Chromecast';
-              }
-            });
-
-            // Handle Chromecast disconnection
-            artPlayerRef.current.chromecast.on('disconnect', () => {
-              console.log('Chromecast disconnected');
-              if (artPlayerRef.current) {
-                artPlayerRef.current.notice.show = '已断开 Chromecast 连接';
-              }
-            });
-
-            // Handle Chromecast errors with better error handling
-            artPlayerRef.current.chromecast.on('error', (error: any) => {
-              console.error('Chromecast error:', error);
-              if (artPlayerRef.current) {
-                artPlayerRef.current.notice.show = 'Chromecast 连接出错';
-              }
-            });
-
-            // Add loadMedia error handling
+            // Add comprehensive loadMedia protection before setting up event handlers
             if (artPlayerRef.current.chromecast.loadMedia) {
               const originalLoadMedia = artPlayerRef.current.chromecast.loadMedia;
               artPlayerRef.current.chromecast.loadMedia = function (...args: any[]) {
                 try {
-                  // Check if Chromecast session is ready
-                  if (!artPlayerRef.current?.chromecast?.session) {
+                  // Multiple safety checks
+                  if (!artPlayerRef.current) {
+                    console.warn('Player reference lost');
+                    return;
+                  }
+
+                  if (!artPlayerRef.current.chromecast) {
+                    console.warn('Chromecast plugin not available');
+                    return;
+                  }
+
+                  // Check if Chromecast session exists and is valid
+                  if (!artPlayerRef.current.chromecast.session) {
                     console.warn('Chromecast session not ready, cannot load media');
                     if (artPlayerRef.current) {
-                      artPlayerRef.current.notice.show = 'Chromecast 未准备就绪';
+                      artPlayerRef.current.notice.show = 'Chromecast 未准备就绪，请稍后再试';
                     }
                     return;
                   }
+
+                  // Check if the session has the required methods
+                  if (typeof artPlayerRef.current.chromecast.session.loadMedia !== 'function') {
+                    console.warn('Chromecast session loadMedia method not available');
+                    if (artPlayerRef.current) {
+                      artPlayerRef.current.notice.show = 'Chromecast 功能不可用';
+                    }
+                    return;
+                  }
+
+                  console.log('Chromecast loadMedia called with args:', args);
                   return originalLoadMedia.apply(this, args);
                 } catch (error) {
                   console.error('Chromecast loadMedia error:', error);
                   if (artPlayerRef.current) {
-                    artPlayerRef.current.notice.show = 'Chromecast 加载媒体失败';
+                    artPlayerRef.current.notice.show = 'Chromecast 加载媒体失败，请重试';
                   }
+                  // Don't rethrow the error to prevent app crashes
+                  return undefined;
                 }
               };
             }
 
+            // Handle Chromecast connection with error handling
+            artPlayerRef.current.chromecast.on('connect', () => {
+              try {
+                console.log('Chromecast connected successfully');
+                if (artPlayerRef.current) {
+                  artPlayerRef.current.notice.show = '已连接到 Chromecast';
+                }
+              } catch (error) {
+                console.error('Error in Chromecast connect handler:', error);
+              }
+            });
+
+            // Handle Chromecast disconnection with error handling
+            artPlayerRef.current.chromecast.on('disconnect', () => {
+              try {
+                console.log('Chromecast disconnected');
+                if (artPlayerRef.current) {
+                  artPlayerRef.current.notice.show = '已断开 Chromecast 连接';
+                }
+              } catch (error) {
+                console.error('Error in Chromecast disconnect handler:', error);
+              }
+            });
+
+            // Handle Chromecast errors with comprehensive error handling
+            artPlayerRef.current.chromecast.on('error', (error: any) => {
+              try {
+                console.error('Chromecast error:', error);
+                if (artPlayerRef.current) {
+                  artPlayerRef.current.notice.show = 'Chromecast 连接出错，请检查设备连接';
+                }
+              } catch (handlerError) {
+                console.error('Error in Chromecast error handler:', handlerError);
+              }
+            });
+
             console.log('Chromecast event handlers initialized successfully');
           } catch (error) {
             console.warn('Chromecast event handler setup failed:', error);
+            // Don't show error to user as this might be expected during initialization
           }
         } else {
           console.log('Chromecast plugin enabled but not yet available - will initialize when ready');
@@ -1721,6 +1758,27 @@ function PlayPageClient() {
 
   // 当组件卸载时清理定时器、Wake Lock 和播放器资源
   useEffect(() => {
+    // Add global error handler for Chromecast errors
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (event.reason && typeof event.reason === 'object' && event.reason.message) {
+        if (event.reason.message.includes('loadMedia') || event.reason.message.includes('chromecast')) {
+          console.warn('Chromecast unhandled error caught:', event.reason);
+          event.preventDefault(); // Prevent the error from being logged as unhandled
+        }
+      }
+    };
+
+    const handleError = (event: ErrorEvent) => {
+      if (event.message && (event.message.includes('loadMedia') || event.message.includes('chromecast'))) {
+        console.warn('Chromecast error caught:', event.message);
+        event.preventDefault(); // Prevent default error handling
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('error', handleError);
+
     return () => {
       // 清理定时器
       if (saveIntervalRef.current) {
@@ -1732,6 +1790,10 @@ function PlayPageClient() {
 
       // 销毁播放器实例
       cleanupPlayer();
+
+      // Remove event listeners
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('error', handleError);
     };
   }, []);
 
