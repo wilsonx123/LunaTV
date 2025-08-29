@@ -1323,11 +1323,7 @@ function PlayPageClient() {
         },
         // Chromecast plugin configuration
         plugins: [
-          artplayerPluginChromecast({
-            appId: '282828GD', // You can customize this
-            autoJoinPolicy: 'origin_scoped', // or 'tab_and_origin_scoped'
-            receiverApplicationId: '233637DE', // Optional custom receiver
-          }),
+          artplayerPluginChromecast(),
         ],
         // HLS 支持配置
         customType: {
