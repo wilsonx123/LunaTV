@@ -106,6 +106,31 @@ export default async function RootLayout({
           async
         />
 
+        {/* Google Cast SDK Initialization */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__onGCastApiAvailable = function(isAvailable) {
+                if (isAvailable) {
+                  try {
+                    // Initialize Cast framework with options
+                    cast.framework.CastContext.getInstance().setOptions({
+                      receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+                      autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
+                      language: 'zh-CN',
+                      resumeSavedSession: true
+                    });
+
+                    console.log('Google Cast SDK initialized successfully');
+                  } catch (error) {
+                    console.warn('Google Cast SDK initialization failed:', error);
+                  }
+                }
+              };
+            `,
+          }}
+        />
+
         {/* 将配置序列化后直接写入脚本，浏览器端可通过 window.RUNTIME_CONFIG 获取 */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script
