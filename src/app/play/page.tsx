@@ -1321,11 +1321,13 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
-        // Chromecast plugin configuration - temporarily disabled to fix build
-        // plugins: [
-        //   artplayerPluginChromecast({}),
-        // ],
-        plugins: [],
+        // Chromecast plugin configuration
+        plugins: [
+          artplayerPluginChromecast({
+            // sdk: '', // The URL of the Cast SDK (optional)
+            // mimeType: '', // The MIME type of the media (optional)
+          }),
+        ],
         // HLS 支持配置
         customType: {
           m3u8: function (video: HTMLVideoElement, url: string) {
