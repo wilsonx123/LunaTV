@@ -1321,11 +1321,18 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
-        // Chromecast plugin configuration
+        // Chromecast plugin configuration - temporarily disabled due to framework loading issues
         plugins: [
-          artplayerPluginChromecast({
-            sdk: 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js',
-          }),
+          // artplayerPluginChromecast({
+          //   sdk: 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js',
+          //   preload: true,
+          //   onReady: () => {
+          //     console.log('Chromecast plugin ready');
+          //   },
+          //   onError: (error: any) => {
+          //     console.warn('Chromecast plugin error:', error);
+          //   },
+          // }),
         ],
         // HLS 支持配置
         customType: {
@@ -1506,20 +1513,24 @@ function PlayPageClient() {
 
         // Chromecast event handlers
         if (artPlayerRef.current.chromecast) {
-          artPlayerRef.current.chromecast.on('connect', () => {
-            console.log('Chromecast connected');
-            artPlayerRef.current.notice.show = '已连接到 Chromecast';
-          });
+          try {
+            artPlayerRef.current.chromecast.on('connect', () => {
+              console.log('Chromecast connected');
+              artPlayerRef.current.notice.show = '已连接到 Chromecast';
+            });
 
-          artPlayerRef.current.chromecast.on('disconnect', () => {
-            console.log('Chromecast disconnected');
-            artPlayerRef.current.notice.show = '已断开 Chromecast 连接';
-          });
+            artPlayerRef.current.chromecast.on('disconnect', () => {
+              console.log('Chromecast disconnected');
+              artPlayerRef.current.notice.show = '已断开 Chromecast 连接';
+            });
 
-          artPlayerRef.current.chromecast.on('error', (error: any) => {
-            console.error('Chromecast error:', error);
-            artPlayerRef.current.notice.show = 'Chromecast 连接出错';
-          });
+            artPlayerRef.current.chromecast.on('error', (error: any) => {
+              console.error('Chromecast error:', error);
+              artPlayerRef.current.notice.show = 'Chromecast 连接出错';
+            });
+          } catch (error) {
+            console.warn('Chromecast event handler setup failed:', error);
+          }
         }
       });
 
