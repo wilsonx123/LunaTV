@@ -1324,14 +1324,7 @@ function PlayPageClient() {
         // Chromecast plugin - now properly initialized with SDK loaded in layout
         plugins: [
           artplayerPluginChromecast({
-            // Required: Application ID for Chromecast
-            applicationId: 'CC1AD845', // Default Chromecast app ID
-            // Optional: Auto join policy
-            autoJoinPolicy: 'origin_scoped',
-            // Optional: Language for Chromecast UI
-            language: 'zh-CN',
-            // Optional: Resume casting on reconnect
-            resumeSavedSession: true,
+            // Basic configuration - plugin will use default settings
           }),
         ],
         // HLS 支持配置
