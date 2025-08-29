@@ -1325,13 +1325,6 @@ function PlayPageClient() {
         plugins: [
           artplayerPluginChromecast({
             sdk: 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js',
-            preload: true,
-            onReady: () => {
-              console.log('Chromecast plugin ready');
-            },
-            onError: (error: any) => {
-              console.warn('Chromecast plugin error:', error);
-            },
           }),
         ],
         // HLS 支持配置
