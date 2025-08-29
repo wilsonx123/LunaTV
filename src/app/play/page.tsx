@@ -1321,11 +1321,11 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
-        // Chromecast plugin configuration - temporarily disabled to fix runtime errors
+        // Chromecast plugin configuration
         plugins: [
-          // artplayerPluginChromecast({
-          //   sdk: 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js',
-          // }),
+          artplayerPluginChromecast({
+            sdk: 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js',
+          }),
         ],
         // HLS 支持配置
         customType: {
@@ -1486,6 +1486,15 @@ function PlayPageClient() {
           {
             position: 'left',
             index: 12,
+            html: '<i class="art-icon flex"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" fill="currentColor"/></svg></i>',
+            tooltip: '播放下一集',
+            click: function () {
+              handleNextEpisode();
+            },
+          },
+          {
+            position: 'right',
+            index: 1,
             html: '<i class="art-icon flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zM1 14v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zm20-7H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" fill="currentColor"/></svg></i>',
             tooltip: 'Chromecast',
             click: function () {
@@ -1499,15 +1508,6 @@ function PlayPageClient() {
               } else {
                 artPlayerRef.current.notice.show = 'Chromecast 未初始化';
               }
-            },
-          },
-          {
-            position: 'left',
-            index: 13,
-            html: '<i class="art-icon flex"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" fill="currentColor"/></svg></i>',
-            tooltip: '播放下一集',
-            click: function () {
-              handleNextEpisode();
             },
           },
         ],
