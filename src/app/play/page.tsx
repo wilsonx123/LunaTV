@@ -1321,11 +1321,11 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
-        // Chromecast plugin configuration
+        // Chromecast plugin configuration - temporarily disabled to fix runtime errors
         plugins: [
-          artplayerPluginChromecast({
-            sdk: 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js',
-          }),
+          // artplayerPluginChromecast({
+          //   sdk: 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js',
+          // }),
         ],
         // HLS 支持配置
         customType: {
