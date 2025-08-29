@@ -5,6 +5,7 @@
 import Artplayer from 'artplayer';
 import Hls from 'hls.js';
 import { Heart } from 'lucide-react';
+import artplayerPluginChromecast from 'artplayer-plugin-chromecast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 
@@ -1320,6 +1321,14 @@ function PlayPageClient() {
         moreVideoAttr: {
           crossOrigin: 'anonymous',
         },
+        // Chromecast plugin configuration
+        plugins: [
+          artplayerPluginChromecast({
+            appId: '282828GD', // You can customize this
+            autoJoinPolicy: 'origin_scoped', // or 'tab_and_origin_scoped'
+            receiverApplicationId: '233637DE', // Optional custom receiver
+          }),
+        ],
         // HLS 支持配置
         customType: {
           m3u8: function (video: HTMLVideoElement, url: string) {
@@ -1485,6 +1494,18 @@ function PlayPageClient() {
               handleNextEpisode();
             },
           },
+          {
+            position: 'right',
+            index: 10,
+            html: '<i class="art-icon flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zM1 14v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zm20-7H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" fill="currentColor"/></svg></i>',
+            tooltip: '投放到 Chromecast',
+            click: function () {
+              // Chromecast button click handler
+              if (artPlayerRef.current && artPlayerRef.current.chromecast) {
+                artPlayerRef.current.chromecast.cast();
+              }
+            },
+          },
         ],
       });
 
@@ -1495,6 +1516,24 @@ function PlayPageClient() {
         // 播放器就绪后，如果正在播放则请求 Wake Lock
         if (artPlayerRef.current && !artPlayerRef.current.paused) {
           requestWakeLock();
+        }
+
+        // Chromecast event handlers
+        if (artPlayerRef.current.chromecast) {
+          artPlayerRef.current.chromecast.on('connect', () => {
+            console.log('Chromecast connected');
+            artPlayerRef.current.notice.show = '已连接到 Chromecast';
+          });
+
+          artPlayerRef.current.chromecast.on('disconnect', () => {
+            console.log('Chromecast disconnected');
+            artPlayerRef.current.notice.show = '已断开 Chromecast 连接';
+          });
+
+          artPlayerRef.current.chromecast.on('error', (error: any) => {
+            console.error('Chromecast error:', error);
+            artPlayerRef.current.notice.show = 'Chromecast 连接出错';
+          });
         }
       });
 
