@@ -99,6 +99,13 @@ export default async function RootLayout({
           content='width=device-width, initial-scale=1.0, viewport-fit=cover'
         />
         <link rel='apple-touch-icon' href='/icons/icon-192x192.png' />
+
+        {/* Google Cast SDK - Load before Chromecast plugin */}
+        <script
+          src='https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1'
+          async
+        />
+
         {/* 将配置序列化后直接写入脚本，浏览器端可通过 window.RUNTIME_CONFIG 获取 */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script
