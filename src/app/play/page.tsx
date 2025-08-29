@@ -1324,8 +1324,10 @@ function PlayPageClient() {
         // Chromecast plugin configuration
         plugins: [
           artplayerPluginChromecast({
-            // sdk: '', // The URL of the Cast SDK (optional)
-            // mimeType: '', // The MIME type of the media (optional)
+            // sdk: 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js', // Cast SDK URL
+            // mimeType: 'video/mp4', // Default MIME type
+            // autoJoinPolicy: 'origin_scoped', // Auto-join policy
+            // receiverApplicationId: 'CC1AD845', // Default receiver app ID
           }),
         ],
         // HLS 支持配置
