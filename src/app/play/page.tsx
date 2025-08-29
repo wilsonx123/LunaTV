@@ -1325,8 +1325,6 @@ function PlayPageClient() {
         plugins: [
           artplayerPluginChromecast({
             sdk: 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js',
-            mimeType: 'video/mp4',
-            receiverApplicationId: 'CC1AD845',
           }),
         ],
         // HLS 支持配置
